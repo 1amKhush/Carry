@@ -1,0 +1,13 @@
+# 0007 — Optional browser-only resume assistant
+
+Milestone 6 adds a separate, opt-in AI disclosure to received cards. The existing encrypted relay flow and Continue link work without an AI account. The relay does not accept a plaintext card or an AI key.
+
+The browser stores an OpenRouter user key in origin-scoped IndexedDB (`carry-ai-v1`). The user can connect through OpenRouter OAuth with a random, one-use S256 PKCE verifier and state tied to the same tab, or paste their own key. The OAuth callback code is removed from the URL before the app starts its normal requests. Disconnect deletes the locally stored key. Clearing browser site data also deletes it. A key is never included in Carry API requests, URLs, environment variables, or the web build. As with device keys, code served to the browser can access this origin's IndexedDB; browser-side storage is not a defense against a compromised web build or malicious same-origin script.
+
+Pressing **Help me resume** reveals the exact JSON card fields proposed for disclosure: goal, next action, note, excerpt, and the title/URL of the primary link plus related URLs. The card ID, timestamps, sender, and routing information are excluded. The browser also sends fixed instructions to produce a short plan. The user must press **Approve and ask AI** for each request. Only then does the browser call OpenRouter directly. OpenRouter and the selected model provider receive the disclosed plaintext. Carry does not ask AI to visit the links, does not fetch linked pages, and does not save generated text to the relay.
+
+`openrouter/free` is the default on each card. Another model requires the user to choose that option and enter its ID; it may charge their own account. There is no model fallback, automatic generation, or hidden retry. Free model availability and rate limits can change. A 402, 429, failed fetch, timeout, malformed JSON, or invalid plan leaves the original Resume card and Continue link usable. The browser validates the response's shape and length, and useful links must exactly match an approved card URL. The request asks the model to acknowledge missing context; the browser also rejects a confident result when the card contains no task details.
+
+The production Content Security Policy allows direct `connect-src` requests to `https://openrouter.ai` in addition to Carry's own origin. This is the only new network destination. The OpenRouter key is not configured on Render or Turso.
+
+Live OAuth and model availability still require a user-owned account and a browser acceptance run on the deployed origin. Automated browser tests mock OpenRouter rather than using a real key.

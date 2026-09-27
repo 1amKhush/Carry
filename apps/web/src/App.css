@@ -278,3 +278,29 @@ select { width:100%; min-height:44px; margin-top:9px; padding:10px 12px; font:in
 .resume-card .saved-related { margin-top: 22px; }
 .resume-card .saved-note { margin-top: 22px; }
 @media (max-width: 640px) { .resume-card { padding: 20px; } .resume-action { padding: 18px; } .resume-destination .button { width: 100%; } }
+
+/* Optional browser-only resume assistant. */
+.ai-assistant { max-width: 780px; margin-top: 18px; padding: 23px 28px; border: 1px solid var(--line); border-radius: 8px; background: #f7f8f1; }
+.ai-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.ai-heading h2 { font-family: 'Instrument Serif', serif; font-size: 28px; font-weight: 400; margin-top: 5px; }
+.ai-assistant > p, .ai-content p { color: var(--muted); font-size: 12px; line-height: 1.65; margin-top: 10px; }
+.ai-open { border-color: #cdd3c1; background: #fffefa; }
+.ai-content { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 20px; }
+.ai-content h3 { font-size: 13px; font-weight: 600; }
+.ai-connection, .ai-model, .ai-disclosure { margin-bottom: 22px; }
+.ai-connection > .refresh-inbox { margin-top: 14px; }
+.ai-connected, .ai-manual-row { display: flex; align-items: center; gap: 12px; margin-top: 13px; }
+.ai-connected > span { color: #48623d; font-size: 12px; }
+.ai-manual { margin-top: 17px; }
+.ai-manual label, .ai-model label { display: block; font-size: 12px; font-weight: 600; }
+.ai-manual-row input { margin-top: 0; flex: 1; min-width: 0; }
+.ai-model select { display: block; width: 100%; max-width: 360px; height: 44px; border: 1px solid #dfe1d6; border-radius: 5px; background: #fffefa; color: var(--ink); padding: 8px; margin: 9px 0 13px; }
+.ai-model input { max-width: 360px; }
+.ai-disclosure pre { margin-top: 12px; max-height: 300px; overflow: auto; padding: 15px; background: #fffefa; border: 1px solid var(--line); border-radius: 5px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; line-height: 1.6; }
+.ai-message { color: #8e3c2d !important; white-space: pre-wrap; }
+.ai-plan { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 20px; }
+.ai-plan h3 { margin: 18px 0 8px; }
+.ai-plan p, .ai-plan li { color: var(--ink); font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.ai-plan ol, .ai-plan ul { padding-left: 22px; }
+.ai-plan a { color: #426839; text-decoration: underline; }
+@media (max-width: 640px) { .ai-assistant { padding: 20px; } .ai-heading, .ai-connected { align-items: stretch; flex-direction: column; } .ai-manual-row { align-items: stretch; flex-direction: column; } .ai-manual-row .refresh-inbox { width: 100%; } }

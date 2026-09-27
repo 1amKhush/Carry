@@ -27,6 +27,12 @@ Select a short passage on a desktop page and use **Carry selected text** in the 
 
 The web app is installable. Android system sharing is an opt-in preview until [the real-phone acceptance check](docs/capture-acceptance.md) passes. `pnpm --filter @carry/web build --mode share-preview` enables it for testing; normal builds retain manual paste and desktop capture. See [the capture contract](docs/decisions/0005-page-capture.md).
 
+## Optional AI resume help
+
+On a received card, choose **Help me resume**. Connect your own OpenRouter account with OAuth PKCE or enter a personal key on that device. Review the exact card fields in the disclosure preview, then press **Approve and ask AI**. The default is `openrouter/free`; another model is used only if you explicitly select and enter it. A generated plan is local to the current screen and is not saved to the relay. **Disconnect and remove key** deletes the browser-stored key. The card and Continue link work even when AI is disconnected or unavailable.
+
+Card plaintext goes directly from the receiving browser to OpenRouter and its selected model provider only after approval. The browser also sends fixed task-planning instructions; linked pages are not fetched or read. No OpenRouter key belongs in Render, Turso, Vite environment variables, or Git. See [0007 — optional AI](docs/decisions/0007-optional-ai.md) for the trust boundary and failure behavior.
+
 ## Verify
 
 ```sh
@@ -97,4 +103,4 @@ See [0003 — secure handoff](docs/decisions/0003-secure-handoff.md) for exact b
 - packages/crypto — browser-compatible crypto primitives and format tests.
 - docs/decisions — implementation decisions.
 
-Native share extensions, notifications, and AI remain later milestones.
+Native share extensions and notifications remain later milestones. Optional AI resume help is available on received cards.

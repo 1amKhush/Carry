@@ -27,12 +27,13 @@ test('production serves browser routes and assets but preserves JSON API and fil
   writeFileSync(join(webRoot,'app.js'),'document.title="Carry"')
   const app=createApp({serveWeb:true,webRoot,origin:'https://carry.example',rateLimit:false})
   t.after(async()=>{await app.close();rmSync(webRoot,{recursive:true,force:true})})
-  for(const url of ['/','/pair','/inbox']) {
+  for(const url of ['/','/pair','/inbox','/oauth/openrouter']) {
     const response=await app.inject({url,headers:{accept:'text/html'}})
     assert.equal(response.statusCode,200,response.body)
     assert.match(response.headers['content-type']!,/text\/html/)
     assert.match(response.body,/id="root"/)
     assert.match(String(response.headers['content-security-policy']),/script-src 'self'/)
+    assert.match(String(response.headers['content-security-policy']),/connect-src 'self' https:\/\/openrouter\.ai;/)
   }
   const asset=await app.inject('/app.js')
   assert.equal(asset.statusCode,200)

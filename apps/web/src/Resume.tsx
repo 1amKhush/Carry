@@ -2,10 +2,11 @@ import type { Card } from '@carry/protocol'
 import { linkLabel } from './card'
 import { Icon } from './Icon'
 import { markContinued } from './lib/handoffs'
+import { ResumeAssistant } from './ai/ResumeAssistant'
 
 export function Resume({ card, onReceiptError }: { card:Card; onReceiptError:()=>void }) {
   const title=card.title||linkLabel(card.primaryUrl)
-  return <article className="resume-card" aria-label={`Resume ${title}`}>
+  return <><article className="resume-card" aria-label={`Resume ${title}`}>
     <div className="resume-action">
       <span className="card-kicker">NEXT ACTION</span>
       <h2>{card.nextAction||'Continue where you left off.'}</h2>
@@ -20,5 +21,5 @@ export function Resume({ card, onReceiptError }: { card:Card; onReceiptError:()=
     </div>
     {card.relatedUrls.length>0&&<div className="saved-related"><span className="card-kicker">RELATED LINKS · {card.relatedUrls.length}</span><ul>{card.relatedUrls.map((url,index)=><li key={index}><a href={url} target="_blank" rel="noopener noreferrer" aria-label={`Related link: ${url} (opens in a new tab)`}><Icon name="link"/><span>{url}</span><Icon name="external"/></a></li>)}</ul></div>}
     {card.note&&<div className="saved-note"><span className="card-kicker">ORIGINAL NOTE</span><p>{card.note}</p></div>}
-  </article>
+  </article><ResumeAssistant key={card.id} card={card}/></>
 }
