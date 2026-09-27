@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { validateCard, parseHttpUrl, type Card } from '../src/card.ts'
+import { validateCard, parseHttpUrl, MAX_GOAL_LENGTH, MAX_NEXT_ACTION_LENGTH, MAX_EXCERPT_LENGTH, type Card } from '../src/card.ts'
 
 const card: Card = {
   id: crypto.randomUUID(), title: '', primaryUrl: 'https://example.com/task?q=17#comment-2',
@@ -9,6 +9,7 @@ const card: Card = {
 
 test('the shared runtime validator accepts a complete card and separate recipient', () => {
   assert.equal(validateCard(card), true)
+  assert.equal(validateCard({...card,goal:'Fix OAuth',nextAction:'Check Safari cookies',excerpt:'A selected passage'}),true)
 })
 
 test('rejects malformed card fields, limits, unknown properties, and non-web URLs', () => {
@@ -24,6 +25,10 @@ test('rejects malformed card fields, limits, unknown properties, and non-web URL
     { ...card, title: 42 },
     { ...card, title: 'a'.repeat(121) },
     { ...card, note: 'a'.repeat(1001) },
+    { ...card, goal: 'a'.repeat(MAX_GOAL_LENGTH+1) },
+    { ...card, nextAction: 'a'.repeat(MAX_NEXT_ACTION_LENGTH+1) },
+    { ...card, excerpt: 'a'.repeat(MAX_EXCERPT_LENGTH+1) },
+    { ...card, excerpt: 42 },
     { ...card, createdAt: '2026-02-30T00:00:00.000Z' },
     { ...card, createdAt: 'yesterday' },
     { ...card, id: '1' },

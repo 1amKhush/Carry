@@ -15,7 +15,7 @@ test('real toolbar action imports exact URL/title privately and rejects restrict
   })
   const extension=join(output,browserName+'-mv3')
   const manifest=JSON.parse(await readFile(join(extension,'manifest.json'),'utf8'))
-  expect(manifest.permissions).toEqual(['activeTab'])
+  expect(manifest.permissions).toEqual(['activeTab','contextMenus'])
   expect(manifest.host_permissions).toBeUndefined()
   expect(manifest.content_scripts).toBeUndefined()
   const executablePath=browserName==='chrome'?process.env.CHROME_PATH:process.env.EDGE_PATH
@@ -32,6 +32,7 @@ test('real toolbar action imports exact URL/title privately and rejects restrict
     const worker=context.serviceWorkers().find(w=>w.url().includes(id))??await context.waitForEvent('serviceworker',{predicate:w=>w.url().includes(id)})
     // Installation completes before the background script has registered its action.
     await expect.poll(()=>worker.evaluate('chrome.action.onClicked.hasListeners()')).toBe(true)
+    await expect.poll(()=>worker.evaluate('new Promise(resolve=>chrome.contextMenus.update("carry-selected-text",{title:"Carry selected text"},()=>resolve(!chrome.runtime.lastError)))')).toBe(true)
     const exact='https://example.com/capture?x=a%2Fb&literal=1+2#part%2fOne',title='Toolbar capture — exact title'
     await context.route('https://example.com/**',route=>route.fulfill({contentType:'text/html; charset=utf-8',body:'<title>'+title+'</title><h1>Page to capture</h1>'}))
     const source=await context.newPage();await source.goto(exact);await source.bringToFront()

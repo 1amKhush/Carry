@@ -9,14 +9,14 @@ test('non-extractable identity keys; signed envelope round trip and independent 
     assert.equal(key.extractable,false)
     await assert.rejects(crypto.subtle.exportKey('jwk',key))
   }
-  const card={id:crypto.randomUUID(),title:'Private title',primaryUrl:'https://example.com/task?q=17#exact',relatedUrls:[],note:'Secret note',createdAt:new Date().toISOString()}
+  const card={id:crypto.randomUUID(),title:'Private title',primaryUrl:'https://example.com/task?q=17#exact',relatedUrls:[],note:'Secret note',goal:'Finish OAuth',nextAction:'Check Safari state cookie',excerpt:'A selected detail',createdAt:new Date().toISOString()}
   const pairId=crypto.randomUUID()
   const one=await encryptCard(a,b.public,pairId,card), two=await encryptCard(a,b.public,pairId,card)
   assert.notEqual(one.ephemeralKey,two.ephemeralKey)
   assert.notEqual(one.iv,two.iv)
   assert.notEqual(one.ciphertext,two.ciphertext)
   assert.deepEqual(await decryptCard(b,a.public,pairId,one),card)
-  for (const text of [card.title,card.note,card.primaryUrl]) assert.equal(JSON.stringify(one).includes(text),false)
+  for (const text of [card.title,card.note,card.primaryUrl,card.goal,card.nextAction,card.excerpt]) assert.equal(JSON.stringify(one).includes(text),false)
   for (const modified of [{...one,iv:two.iv},{...one,ciphertext:two.ciphertext},{...one,expiresAt:one.expiresAt+1},{...one,recipientId:a.public.id}]) {
     await assert.rejects(decryptCard(b,a.public,pairId,modified))
   }

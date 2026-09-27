@@ -41,7 +41,7 @@ test('Turso: authenticated pairing, concurrent retry, restart, privacy, receipts
   const joined=await app.inject({method:'POST',url:pairUrl+'/join',headers:bh,payload:{secret:invitation.secret}})
   assert.equal(joined.statusCode,200,joined.body)
   const paired=joined.json().pair as Pair
-  const content={id:crypto.randomUUID(),title:'PRIVATE-TURSO-TITLE-'+crypto.randomUUID(),primaryUrl:'https://example.com/private?x=a%2Fb&y=2#exact',relatedUrls:[],note:'PRIVATE-TURSO-NOTE-'+crypto.randomUUID(),createdAt:new Date().toISOString()}
+  const content={id:crypto.randomUUID(),title:'PRIVATE-TURSO-TITLE-'+crypto.randomUUID(),primaryUrl:'https://example.com/private?x=a%2Fb&y=2#exact',relatedUrls:[],note:'PRIVATE-TURSO-NOTE-'+crypto.randomUUID(),goal:'PRIVATE-TURSO-GOAL-'+crypto.randomUUID(),nextAction:'PRIVATE-TURSO-ACTION-'+crypto.randomUUID(),excerpt:'PRIVATE-TURSO-EXCERPT-'+crypto.randomUUID(),createdAt:new Date().toISOString()}
   const envelope=await encryptCard(a,b.public,paired.id,content)
   const send=(target=app,payload=envelope)=>target.inject({method:'POST',url:'/api/v1/envelopes',headers:ah,payload})
   assert.equal((await send()).statusCode,403)
@@ -62,7 +62,7 @@ test('Turso: authenticated pairing, concurrent retry, restart, privacy, receipts
   assert.equal((await app.inject({method:'POST',url:'/api/v1/envelopes/'+envelope.id+'/receipt',headers:oh,payload:{status:'received'}})).statusCode,404)
   assert.equal((await app.inject({method:'POST',url:'/api/v1/envelopes',headers:ah,payload:content})).statusCode,400)
   const stored=String((await inspector.get('SELECT payload FROM envelopes WHERE id=?',envelope.id))!.payload)
-  for(const secret of [content.title,content.primaryUrl,content.note])assert.equal(stored.includes(secret),false)
+  for(const secret of [content.title,content.primaryUrl,content.note,content.goal,content.nextAction,content.excerpt])assert.equal(stored.includes(secret),false)
   await Promise.all([app.close(),parallel.close()])
   app=start();parallel=start()
   const inbox=(await app.inject({url:'/api/v1/inbox',headers:bh})).json().envelopes

@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { test,expect } from './relay.ts'
 import { primary,send,navigate,pair } from './helpers.ts'
 const exact='https://example.com/capture?x=a%2Fb&literal=1+2&repeat=1&repeat=2#part%2fOne'
+const excerpt='Selected detail: the state cookie is missing on Safari.'
 const fragment=(input:unknown)=>'#capture='+encodeURIComponent(JSON.stringify(input))
 function queued(path:string) {const db=new DatabaseSync(path,{readOnly:true});try{return Number(db.prepare('SELECT count(*) n FROM envelopes').get()!.n)}finally{db.close()}}
 async function share(page:import('@playwright/test').Page,input:Record<string,string>,action='/share-target',controlled=true) {
@@ -23,17 +24,20 @@ test('capture is only a retained draft until Send; exact URL survives encrypted 
     const b=await receiver.newPage();await pair(page,b,relay.origin)
     const network:string[]=[]
     page.on('request',request=>network.push(request.url()+' '+(request.postData()??'')))
-    await page.goto(relay.origin+'/'+fragment({url:exact,title:'Captured page — review me'}))
+    await page.goto(relay.origin+'/'+fragment({url:exact,title:'Captured page — review me',excerpt}))
     await expect(primary(page)).toHaveValue(exact)
     await expect(page.getByLabel('Give it a name')).toHaveValue('Captured page — review me')
+    await expect(page.getByLabel('Relevant detail')).toHaveValue(excerpt)
     await expect(page.getByRole('complementary',{name:'Live card preview'})).toContainText('Captured page — review me')
     expect(page.url()).toBe(relay.origin+'/#new')
     expect(queued(relay.databasePath)).toBe(0)
     expect(network.join(' ')).not.toContain(exact)
+    expect(network.join(' ')).not.toContain(excerpt)
     await page.getByLabel('A note to your future self').fill('Review before sending')
     await navigate(page,'Inbox');await navigate(page,'New card');await page.reload()
     await expect(primary(page)).toHaveValue(exact)
     await expect(page.getByLabel('A note to your future self')).toHaveValue('Review before sending')
+    await expect(page.getByLabel('Relevant detail')).toHaveValue(excerpt)
     await page.route('**/api/v1/envelopes',route=>route.abort())
     await send(page).click()
     await expect(page.locator('.editor .send-error')).toBeVisible()
@@ -44,6 +48,9 @@ test('capture is only a retained draft until Send; exact URL survives encrypted 
     expect(queued(relay.databasePath)).toBe(1)
     await navigate(b,'Inbox')
     await expect(b.getByRole('heading',{name:'Captured page — review me'})).toBeVisible()
+    await b.getByRole('link',{name:'Resume Captured page — review me'}).click()
+    await expect(b.getByRole('heading',{name:'Continue where you left off.'})).toBeVisible()
+    await expect(b.locator('.resume-excerpt')).toContainText(excerpt)
     await receiver.route('https://example.com/**',route=>route.fulfill({contentType:'text/html',body:'Resumed'}))
     const [popup]=await Promise.all([b.waitForEvent('popup'),b.getByRole('link',{name:/^Continue to/}).click()])
     await popup.waitForLoadState();expect(popup.url()).toBe(exact)
@@ -62,7 +69,7 @@ test('a new capture cannot silently replace existing work, and invalid captures 
   await page.getByRole('button',{name:'Use captured page'}).click()
   await expect(primary(page)).toHaveValue(exact)
   await expect(page.getByLabel('A note to your future self')).toHaveValue('Keep this context')
-  for(const hash of [fragment({url:'javascript:alert(1)'}),'#capture=%broken',fragment({})]) {
+  for(const hash of [fragment({url:'javascript:alert(1)'}),'#capture=%broken',fragment({}),'#capture-error=selection-editable']) {
     await page.goto(relay.origin+'/'+hash)
     await expect(page.locator('.capture-error')).toBeVisible()
     await expect(primary(page)).toHaveValue(exact)

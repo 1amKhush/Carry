@@ -1,6 +1,7 @@
 import { AxeBuilder } from '@axe-core/playwright'
 import { chromium, type BrowserContext, type Page } from '@playwright/test'
 import { join } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { test,expect } from './relay.ts'
 
 import { primary, send, navigate, pair, submit } from './helpers.ts'
@@ -26,13 +27,24 @@ test('persistent profiles pair; recipient closes; encrypted card survives API re
     const destination='https://example.com/research?topic=carry%2Ftask&ref=17#comment-17'
     const posted:string[]=[]
     a.on('request',r=>{if(r.url().endsWith('/api/v1/envelopes')&&r.method()==='POST')posted.push(r.postData()!)})
-    await navigate(a,'New card')
+    await a.goto(relay.origin+'/#capture='+encodeURIComponent(JSON.stringify({url:destination,title:'Private browser handoff',excerpt:'Selected detail: state cookie is missing on Safari.'})))
+    await expect(primary(a)).toHaveValue(destination)
+    await expect(a.getByLabel('Relevant detail')).toHaveValue('Selected detail: state cookie is missing on Safari.')
+    await a.getByLabel('Goal').fill('Finish the OAuth callback fix.')
+    await a.getByLabel('Next action').fill('Check why the state cookie is missing on Safari.')
     await a.getByLabel('A note to your future self').fill('Private note: compare comment 17.')
     for(let n=1;n<=3;n++){await a.getByRole('button',{name:'Add a related link'}).click();await a.getByLabel('Related link '+n,{exact:true}).fill('https://example.com/reference-'+n)}
     await expect(a.getByRole('button',{name:'All three links added'})).toBeDisabled()
-    await submit(a,destination,'Private browser handoff')
+    await send(a).click()
+    await expect(a.locator('.notice')).toContainText('Queued')
     expect(posted).toHaveLength(1)
-    for(const secret of [destination,'Private browser handoff','Private note'])expect(posted[0]).not.toContain(secret)
+    const secretContent=[destination,'Private browser handoff','Private note','Finish the OAuth callback fix.','Check why the state cookie is missing on Safari.','Selected detail: state cookie is missing on Safari.']
+    for(const secret of secretContent)expect(posted[0]).not.toContain(secret)
+    const db=new DatabaseSync(relay.databasePath,{readOnly:true})
+    try {
+      const stored=JSON.stringify(db.prepare('SELECT * FROM envelopes').all())
+      for(const secret of secretContent)expect(stored).not.toContain(secret)
+    } finally {db.close()}
     await sender.close();sender=undefined
     await relay.restart()
     receiver=await chromium.launchPersistentContext(join(relay.directory,'receiver'),options)
@@ -41,11 +53,16 @@ test('persistent profiles pair; recipient closes; encrypted card survives API re
     await b.goto(relay.origin+'/#inbox')
     const card=b.locator('.inbox-card')
     await expect(card.getByRole('heading',{name:'Private browser handoff'})).toBeVisible()
-    await expect(card.getByRole('link',{name:/^Related link:/})).toHaveCount(3)
-    await expect(card.locator('.saved-note')).toContainText('Private note: compare comment 17.')
+    await card.getByRole('link',{name:'Resume Private browser handoff'}).click()
+    const resume=b.locator('.resume-card')
+    await expect(resume.locator('.resume-action')).toContainText('Check why the state cookie is missing on Safari.')
+    await expect(resume.locator('.resume-context').first()).toContainText('Finish the OAuth callback fix.')
+    await expect(resume.locator('.resume-excerpt')).toContainText('Selected detail: state cookie is missing on Safari.')
+    await expect(resume.getByRole('link',{name:/^Related link:/})).toHaveCount(3)
+    await expect(resume.locator('.saved-note')).toContainText('Private note: compare comment 17.')
     await b.reload()
-    await expect(card).toHaveCount(1)
-    const [popup]=await Promise.all([b.waitForEvent('popup'),card.getByRole('link',{name:/^Continue to/}).click()])
+    await expect(resume).toBeVisible()
+    const [popup]=await Promise.all([b.waitForEvent('popup'),resume.getByRole('link',{name:/^Continue to/}).click()])
     await popup.waitForLoadState()
     expect(popup.url()).toBe(destination)
     expect(await popup.evaluate(()=>window.opener===null)).toBe(true)
@@ -53,7 +70,7 @@ test('persistent profiles pair; recipient closes; encrypted card survives API re
     a=await sender.newPage();a.on('pageerror',e=>errors.push(e.message))
     await a.goto(relay.origin)
     await expect(a.locator('.delivery-panel li strong')).toHaveText('Continued')
-    await b.reload();await expect(card).toHaveCount(1)
+    await b.reload();await expect(resume).toBeVisible()
     expect(errors).toEqual([])
   } finally {await sender?.close();await receiver?.close()}
 })
@@ -74,6 +91,9 @@ test('polling receives cards; lost send response retries the identical envelope 
     await send(page).click()
     await expect(page.locator('.editor .send-error')).toContainText('relay could not be reached')
     await expect(b.getByRole('heading',{name:'Retry once'})).toBeVisible()
+    await b.getByRole('link',{name:'Resume Retry once'}).click()
+    await expect(b.getByRole('heading',{name:'Continue where you left off.'})).toBeVisible()
+    await b.getByRole('link',{name:'Back to Inbox'}).click()
     await expect(primary(page)).toHaveValue('https://example.com/retry?exact=1#part')
     await page.reload()
     await expect(page.getByRole('button',{name:'Retry saved send'})).toBeVisible()
@@ -129,6 +149,9 @@ test('invalid URLs stay in the form; keyboard navigation, pairing and inbox are 
     await submit(page,'https://example.com/'+'long-path-'.repeat(35),'<script>Plain text</script>')
     await navigate(b,'Inbox')
     await expect(b.getByRole('heading',{name:'<script>Plain text</script>'})).toBeVisible()
+    expect(await scan(b)).toEqual([])
+    await b.getByRole('link',{name:'Resume <script>Plain text</script>'}).click()
+    await expect(b.getByRole('heading',{name:'Continue where you left off.'})).toBeVisible()
     expect(await scan(b)).toEqual([])
     expect(await b.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
   } finally {await receiver.close()}

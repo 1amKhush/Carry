@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { captureAddress, DEFAULT_CARRY_ORIGIN } from '../src/capture.ts'
+import { captureAddress, selectedTextAddress, DEFAULT_CARRY_ORIGIN } from '../src/capture.ts'
 
 test('toolbar capture puts only exact URL and title in the fragment',()=>{
   const input={url:'https://example.com/p?q=a%2Fb&x=1+2#exact',title:'Private page — title'}
@@ -15,4 +15,14 @@ test('restricted tabs and invalid schemes open a usable error draft; app origin 
   assert.throws(()=>captureAddress({url:'https://example.com'},'http://public.example'),/HTTPS/)
   assert.throws(()=>captureAddress({},DEFAULT_CARRY_ORIGIN+'/path'),/HTTPS/)
   assert.equal(new URL(captureAddress({},'http://127.0.0.1:5173')).origin,'http://127.0.0.1:5173')
+})
+
+test('selected-text action imports only a bounded explicit selection',()=>{
+  const tab={url:'https://example.com/?x=a%2Fb#exact',title:'OAuth fix'}
+  const selected=new URL(selectedTextAddress({editable:false,selectionText:'  Cookie state is missing.  '},tab))
+  assert.deepEqual(JSON.parse(decodeURIComponent(selected.hash.slice(9))),{...tab,excerpt:'Cookie state is missing.'})
+  const tooLong=new URL(selectedTextAddress({editable:false,selectionText:'x'.repeat(5000)},tab))
+  assert.equal(JSON.parse(decodeURIComponent(tooLong.hash.slice(9))).excerpt.length,1201)
+  assert.equal(new URL(selectedTextAddress({editable:true,selectionText:'password'},tab)).hash,'#capture-error=selection-editable')
+  assert.equal(new URL(selectedTextAddress({editable:false,selectionText:' '},tab)).hash,'#capture-error=selection-empty')
 })

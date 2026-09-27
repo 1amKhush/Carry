@@ -1,6 +1,6 @@
-import { MAX_TITLE_LENGTH, parseExactHttpUrl } from '@carry/protocol'
+import { MAX_EXCERPT_LENGTH, MAX_TITLE_LENGTH, parseExactHttpUrl } from '@carry/protocol'
 
-export interface CaptureDraft { url:string; title:string }
+export interface CaptureDraft { url:string; title:string; excerpt:string }
 export type CaptureResult = {draft:CaptureDraft;message:string} | {error:string}
 export const MAX_CAPTURE_LENGTH=8192
 
@@ -8,7 +8,7 @@ export const MAX_CAPTURE_LENGTH=8192
 export function normalizeCapture(input:unknown):CaptureResult {
   if(!input||typeof input!=='object'||Array.isArray(input))return {error:'This capture is missing a page link. Paste an HTTP or HTTPS link below.'}
   const value=input as Record<string,unknown>
-  for(const key of ['url','title','text'])if(value[key]!==undefined&&(typeof value[key]!=='string'||value[key].length>MAX_CAPTURE_LENGTH))return {error:'This capture is too large or malformed. Paste the page link below.'}
+  for(const key of ['url','title','text','excerpt'])if(value[key]!==undefined&&(typeof value[key]!=='string'||value[key].length>MAX_CAPTURE_LENGTH))return {error:'This capture is too large or malformed. Paste the page link below.'}
   let url=typeof value.url==='string'?value.url.trim():''
   if(!url) {
     const text=typeof value.text==='string'?value.text.trim():''
@@ -19,5 +19,7 @@ export function normalizeCapture(input:unknown):CaptureResult {
   const exact=parseExactHttpUrl(url)
   if(!exact)return {error:'Carry needs a complete HTTP or HTTPS page link. This capture was not added; you can paste a link below.'}
   const title=typeof value.title==='string'?value.title:''
-  return {draft:{url:exact,title:title.slice(0,MAX_TITLE_LENGTH)},message:title.length>MAX_TITLE_LENGTH?'The page title was shortened. Review your draft before sending.':'Page captured. Review your draft and choose a device. Nothing has been sent.'}
+  const excerpt=typeof value.excerpt==='string'?value.excerpt.trim():''
+  const tooLong=excerpt.length>MAX_EXCERPT_LENGTH
+  return {draft:{url:exact,title:title.slice(0,MAX_TITLE_LENGTH),excerpt:tooLong?'':excerpt},message:tooLong?'The selected text is too long. Select a passage under 1,200 characters or add a shorter excerpt below. Nothing was sent.':title.length>MAX_TITLE_LENGTH?'The page title was shortened. Review your draft before sending.':'Page captured. Review your draft and choose a device. Nothing has been sent.'}
 }

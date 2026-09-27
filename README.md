@@ -23,6 +23,8 @@ The API stores data in apps/api/data/carry.sqlite during development. Stop and r
 
 [Load the Carry extension in Chrome or Edge](apps/extension/README.md), then click **Carry this page** on an HTTP(S) tab. It opens the existing New card form with the exact URL and title. Review the draft, choose a paired device and press **Send**. Capturing never sends automatically. Drafts survive reload/navigation within the same tab; an incoming capture asks before replacing existing work.
 
+Select a short passage on a desktop page and use **Carry selected text** in the right-click menu to prefill a reviewed excerpt. Add an optional goal and next action in New card. On the recipient, open the card from Inbox to see its dedicated **Resume** view: next action first, then context, Continue, related links and the original note. Older cards still open. See [0006 — resumable context](docs/decisions/0006-resumable-context.md).
+
 The web app is installable. Android system sharing is an opt-in preview until [the real-phone acceptance check](docs/capture-acceptance.md) passes. `pnpm --filter @carry/web build --mode share-preview` enables it for testing; normal builds retain manual paste and desktop capture. See [the capture contract](docs/decisions/0005-page-capture.md).
 
 ## Verify
@@ -35,6 +37,7 @@ pnpm build
 pnpm --filter @carry/web exec playwright install chromium
 pnpm test:e2e
 pnpm test:extension # Requires installed Chrome and Edge; build the web app first.
+pnpm --filter @carry/api test:turso # Optional live test; needs ignored apps/api/.env.turso.local.
 ```
 
 For an installed Chrome, use `CHROME_PATH=/usr/bin/google-chrome pnpm test:e2e`. Browser tests launch isolated API processes with temporary SQLite files. They use separate persistent profiles, stop/restart the real API, test exact-link Continue, lost-response retry, receipts, polling, Unpair, invalid URLs, and automated desktop/mobile accessibility. The browser suite builds with the share-preview flag and tests POST interception with a real service worker and an HTTP-boundary counter. Run `pnpm --filter @carry/web build` afterward to restore a default production build. Mobile emulation is not an actual-phone test.

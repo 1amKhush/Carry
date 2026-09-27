@@ -16,7 +16,11 @@ export async function readCaptureLocation():Promise<CaptureRequest|null> {
   if(!/^#(?:capture=|share=|capture-error=)/.test(fragment))return null
   // Remove the payload before identity registration, polling or React rendering.
   history.replaceState(history.state,'',location.pathname+location.search+'#new')
-  if(fragment.startsWith('#capture-error='))return {id:crypto.randomUUID(),result:{error:'The shared page could not be opened locally. Open Carry once, then try Share again, or paste the link below. Nothing was sent.'}}
+  if(fragment.startsWith('#capture-error=')) {
+    const code=fragment.slice(15)
+    const error=code==='selection-editable'?'Carry does not capture text from form fields or editable content. Select text in the page instead, or enter a detail below. Nothing was sent.':code==='selection-empty'?'No page text was selected. Highlight a short passage and try again, or enter a detail below. Nothing was sent.':'The shared page could not be opened locally. Open Carry once, then try Share again, or paste the link below. Nothing was sent.'
+    return {id:crypto.randomUUID(),result:{error}}
+  }
   if(fragment.startsWith('#capture=')) {
     try {
       if(fragment.length>MAX_CAPTURE_LENGTH*3)throw new Error('Capture too large')

@@ -12,10 +12,14 @@ import { NewCard } from './NewCard'
 import { readCaptureLocation, type CaptureRequest } from './capture/importDraft'
 import './App.css'
 
-function currentScreen() {return location.hash.startsWith('#pair')?'pair':location.hash==='#inbox'?'inbox':'new'}
+function currentRoute() {
+  const resume=location.hash.match(/^#resume\/(.+)$/)
+  return resume?{screen:'resume' as const,resumeId:resume[1]}:{screen:(location.hash.startsWith('#pair')?'pair':location.hash==='#inbox'?'inbox':'new') as 'pair'|'inbox'|'new',resumeId:undefined}
+}
 export default function App({initialCapture=null}:{initialCapture?:CaptureRequest|null}) {
   const [capture,setCapture]=useState(initialCapture)
-  const [screen,setScreen]=useState(currentScreen)
+  const [route,setRoute]=useState(currentRoute)
+  const {screen,resumeId}=route
   const [identity,setIdentity]=useState<Identity|null>(null)
   const [peers,setPeers]=useState<Pair[]>([])
   const [error,setError]=useState('')
@@ -31,13 +35,13 @@ export default function App({initialCapture=null}:{initialCapture?:CaptureReques
   },[refreshPeers])
   useEffect(()=>{
     function navigate(){
-      void readCaptureLocation().then(request=>{if(request){setCapture(request);setScreen('new')}})
-      setScreen(currentScreen());setNotice('');mainRef.current?.focus()
+      void readCaptureLocation().then(request=>{if(request){setCapture(request);setRoute({screen:'new',resumeId:undefined})}})
+      setRoute(currentRoute());setNotice('');mainRef.current?.focus()
     }
     window.addEventListener('hashchange',navigate)
     return ()=>window.removeEventListener('hashchange',navigate)
   },[])
-  const title=screen==='new'?'New card':screen==='pair'?'Pair device':'Inbox'
+  const title=screen==='new'?'New card':screen==='pair'?'Pair device':screen==='resume'?'Resume':'Inbox'
   useEffect(()=>{document.title=title+' · Carry'},[title])
   return <div className="app-shell">
     <a className="skip-link" href="#main" onClick={e=>{e.preventDefault();mainRef.current?.focus()}}>Skip to content</a>
@@ -45,7 +49,7 @@ export default function App({initialCapture=null}:{initialCapture?:CaptureReques
       <a className="brand" href="#new" aria-label="Carry home"><span className="brand-mark" aria-hidden="true"><Icon name="arrow"/></span>carry<span className="brand-period">.</span></a>
       <p className="brand-caption">Keep your train of thought.</p>
       <nav aria-label="Main navigation"><p className="nav-label">YOUR SPACE</p>
-        {([{id:'new',label:'New card',icon:'plus'},{id:'inbox',label:'Inbox',icon:'inbox'},{id:'pair',label:'Pair device',icon:'link'}] as const).map(item=><a key={item.id} className={'nav-link '+(screen===item.id?'active':'')} href={'#'+item.id} aria-current={screen===item.id?'page':undefined}><Icon name={item.icon}/><span>{item.label}</span></a>)}
+        {([{id:'new',label:'New card',icon:'plus'},{id:'inbox',label:'Inbox',icon:'inbox'},{id:'pair',label:'Pair device',icon:'link'}] as const).map(item=><a key={item.id} className={'nav-link '+(screen===item.id||(screen==='resume'&&item.id==='inbox')?'active':'')} href={'#'+item.id} aria-current={(screen===item.id||(screen==='resume'&&item.id==='inbox'))?'page':undefined}><Icon name={item.icon}/><span>{item.label}</span></a>)}
       </nav>
       <div className="sidebar-bottom"><div className="sidebar-sketch" aria-hidden="true"><span/><span/><Icon name="arrow"/></div><p>A small card.<br/>A clear place to return.</p><div className="session-info"><span className="status-dot"/>Private handoff</div><p className="session-explanation">Encrypted before sending.<br/>Kept for seven days.</p></div>
     </aside>
@@ -56,7 +60,7 @@ export default function App({initialCapture=null}:{initialCapture?:CaptureReques
         <div className="notice" role="status">{notice&&<><Icon name="check"/>{notice}</>}</div>
         {identity&&<>
           <div hidden={screen!=='new'}><NewCard capture={capture} deviceId={identity.public.id} peers={peers} onNotice={setNotice}/>{screen==='new'&&<Outbox/>}</div>
-          {screen==='inbox'&&<Inbox/>}
+          {(screen==='inbox'||screen==='resume')&&<Inbox resumeId={resumeId}/>}
           {screen==='pair'&&<PairDevices deviceId={identity.public.id} peers={peers} onChange={refreshPeers}/>}
         </>}
       </main>

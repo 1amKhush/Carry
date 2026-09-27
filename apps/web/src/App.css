@@ -249,3 +249,32 @@ select { width:100%; min-height:44px; margin-top:9px; padding:10px 12px; font:in
 .capture-notice p { margin: 0 0 12px; }
 .capture-error { color: #863d30; border-color: #dfc4b8; background: #fff2eb; }
 .capture-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+
+/* Optional task context and the received-card Resume view. */
+.context-intro { margin: -12px 0 18px; }
+.context-field { margin-top: 18px; }
+.add-detail { display: block; margin-top: 19px; padding: 9px 0; color: #566d47; background: none; border: 0; font-size: 11px; text-align: left; text-decoration: underline; text-underline-offset: 3px; }
+.add-detail:hover { color: var(--accent); }
+.preview-action { margin-top: 22px; padding: 15px; border-radius: 5px; background: #ebeee3; }
+.preview-action p { margin-top: 8px; font-size: 15px; line-height: 1.5; font-weight: 600; white-space: pre-wrap; overflow-wrap: anywhere; }
+.preview-goal { margin-top: 15px; font-size: 11px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.preview-goal .card-kicker { display: block; margin-bottom: 5px; }
+.preview-excerpt { margin-top: 15px; padding-left: 12px; border-left: 2px solid #b3bb9e; }
+.preview-excerpt p { margin-top: 6px; font-size: 10px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.inbox-url { color: #69765b; font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; }
+.inbox-next { margin-top: 19px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.inbox-next .card-kicker { display: block; margin-bottom: 5px; }
+.resume-back { display: inline-flex; margin: 23px 0 0; color: #566d47; font-size: 12px; min-height: 44px; align-items: center; }
+.resume-back:hover { text-decoration: underline; text-underline-offset: 3px; }
+.resume-card { max-width: 780px; padding: 30px; border: 1px solid var(--line); border-radius: 8px; background: #fffefa; box-shadow: 0 5px 18px #373f2004; }
+.resume-action { padding: 21px 22px; background: #ebeee3; border-radius: 6px; }
+.resume-action h2 { margin-top: 9px; font-family: 'Instrument Serif', serif; font-size: clamp(30px, 4vw, 42px); font-weight: 400; line-height: 1.2; white-space: pre-wrap; overflow-wrap: anywhere; }
+.resume-context { margin-top: 24px; }
+.resume-context p, .resume-context blockquote { margin-top: 8px; font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.resume-excerpt blockquote { margin-left: 0; padding-left: 16px; border-left: 2px solid #b3bb9e; color: #4d5845; }
+.resume-destination { margin-top: 28px; padding: 22px 0; border-block: 1px solid var(--line); }
+.resume-destination h3 { margin-top: 9px; font-family: 'Instrument Serif', serif; font-size: 27px; font-weight: 400; overflow-wrap: anywhere; }
+.resume-destination p { margin: 8px 0 18px; color: #69765b; font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.resume-card .saved-related { margin-top: 22px; }
+.resume-card .saved-note { margin-top: 22px; }
+@media (max-width: 640px) { .resume-card { padding: 20px; } .resume-action { padding: 18px; } .resume-destination .button { width: 100%; } }

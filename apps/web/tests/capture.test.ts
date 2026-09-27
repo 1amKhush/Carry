@@ -7,7 +7,10 @@ const url='https://example.com/a%2fb?x=a%2Fb&repeat=1&repeat=2+3#part%2fOne'
 test('capture preserves exact URL bytes and title; no card ID, recipient or send is created',()=>{
   const result=normalizeCapture({url,title:'A page — context'})
   assert.ok('draft' in result)
-  assert.deepEqual(result.draft,{url,title:'A page — context'})
+  assert.deepEqual(result.draft,{url,title:'A page — context',excerpt:''})
+  const selected=normalizeCapture({url,title:'A page — context',excerpt:'  Explicitly selected text.  '})
+  assert.ok('draft' in selected)
+  assert.equal(selected.draft.excerpt,'Explicitly selected text.')
   assert.equal(parseExactHttpUrl('HTTPS://EXAMPLE.COM:443/a/../b?x=%2f#Part'),'HTTPS://EXAMPLE.COM:443/a/../b?x=%2f#Part')
 })
 test('Android text links normalize through the same contract; explicit URL wins',()=>{
@@ -15,6 +18,7 @@ test('Android text links normalize through the same contract; explicit URL wins'
     const result=normalizeCapture({text,title:'Shared page'})
     assert.ok('draft' in result)
     assert.equal(result.draft.url,url)
+    assert.equal(result.draft.excerpt,'')
   }
   const result=normalizeCapture({url,text:'https://other.example',title:''})
   assert.ok('draft' in result)
@@ -33,4 +37,11 @@ test('long titles are bounded with an explanation while keeping a usable link',(
   assert.ok('draft' in result)
   assert.equal(result.draft.title.length,120)
   assert.match(result.message,/shortened/)
+})
+
+test('oversize selected text is explained and not imported',()=>{
+  const result=normalizeCapture({url,excerpt:'x'.repeat(1201)})
+  assert.ok('draft' in result)
+  assert.equal(result.draft.excerpt,'')
+  assert.match(result.message,/too long/)
 })

@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useRef, useState, type FormEvent } from 'react'
 import { linkLabel } from './card'
-import { MAX_RELATED_LINKS, MAX_TITLE_LENGTH, MAX_NOTE_LENGTH, MAX_URL_LENGTH, parseExactHttpUrl, validateCard, type Card } from '@carry/protocol'
+import { MAX_EXCERPT_LENGTH, MAX_GOAL_LENGTH, MAX_NEXT_ACTION_LENGTH, MAX_RELATED_LINKS, MAX_TITLE_LENGTH, MAX_NOTE_LENGTH, MAX_URL_LENGTH, parseExactHttpUrl, validateCard, type Card } from '@carry/protocol'
 import { sendHandoff } from './lib/handoffs'
 import { Icon } from './Icon'
 import type { Pair } from '@carry/protocol/secure'
@@ -23,6 +23,10 @@ export function NewCard({ onNotice, deviceId, peers, capture }: { capture:Captur
   const [primaryUrl, setPrimaryUrl] = useState(saved.primaryUrl)
   const [title, setTitle] = useState(saved.title)
   const [note, setNote] = useState(saved.note)
+  const [goal, setGoal] = useState(saved.goal)
+  const [nextAction, setNextAction] = useState(saved.nextAction)
+  const [excerpt, setExcerpt] = useState(saved.excerpt)
+  const [showExcerpt, setShowExcerpt] = useState(Boolean(saved.excerpt))
   const [related, setRelated] = useState<RelatedInput[]>(saved.related)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const nextRelatedId = useRef(Math.max(0,...saved.related.map(r=>r.id))+1)
@@ -31,26 +35,26 @@ export function NewCard({ onNotice, deviceId, peers, capture }: { capture:Captur
   const primary = parseExactHttpUrl(primaryUrl)
   const previewLinks = related.map((item) => parseExactHttpUrl(item.value)).filter((url): url is string => url !== null)
 
-  function persistDraft(url=primaryUrl,name=title) {
-    const saved=saveEditorDraft({primaryUrl:url,title:name,note,recipient,related,attempt:sendAttempt.current})
+  function persistDraft(url=primaryUrl,name=title,selectedExcerpt=excerpt) {
+    const saved=saveEditorDraft({primaryUrl:url,title:name,note,goal,nextAction,excerpt:selectedExcerpt,recipient,related,attempt:sendAttempt.current})
     setDraftWarning(saved?'':'This browser cannot save the draft for reload. Keep this tab open until you finish.')
     return saved
   }
   const persistCurrent=useEffectEvent(()=>persistDraft())
-  useEffect(()=>{persistCurrent()},[primaryUrl,title,note,recipient,related,sending])
+  useEffect(()=>{persistCurrent()},[primaryUrl,title,note,goal,nextAction,excerpt,recipient,related,sending])
   function applyCapture(request:CaptureRequest) {
     if(!('draft' in request.result))return
     const {draft,message}=request.result
     sendAttempt.current=null
-    setPrimaryUrl(draft.url);setTitle(draft.title);setErrors({});setSendError('')
+    setPrimaryUrl(draft.url);setTitle(draft.title);setExcerpt(draft.excerpt);setShowExcerpt(Boolean(draft.excerpt));setErrors({});setSendError('')
     setCaptureError('');setCaptureMessage(message);setPendingCapture(null)
-    if(persistDraft(draft.url,draft.title))void finishCapture(request).catch(()=>{})
+    if(persistDraft(draft.url,draft.title,draft.excerpt))void finishCapture(request).catch(()=>{})
   }
   const receiveCapture=useEffectEvent((request:CaptureRequest)=>{
     if(lastCapture.current===request.id)return
     lastCapture.current=request.id
     if('error' in request.result){setCaptureError(request.result.error);void finishCapture(request).catch(()=>{});return}
-    if(sending||primaryUrl||title||note||related.length)setPendingCapture(request)
+    if(sending||primaryUrl||title||note||goal||nextAction||excerpt||related.length)setPendingCapture(request)
     else applyCapture(request)
   })
   // Synchronize a new external capture with the existing, independently editable form.
@@ -84,10 +88,11 @@ export function NewCard({ onNotice, deviceId, peers, capture }: { capture:Captur
       return
     }
     if (!primary || !selectedPair) return
-    const content = JSON.stringify([selectedPair.id, primary, relatedUrls, title.trim(), note.trim()])
+    const content = JSON.stringify([selectedPair.id, primary, relatedUrls, title.trim(), note.trim(), goal.trim(), nextAction.trim(), excerpt.trim()])
     const card = sendAttempt.current?.content === content
       ? sendAttempt.current.card
-      : { id: crypto.randomUUID(), createdAt: new Date().toISOString(), primaryUrl: primary, relatedUrls, title: title.trim(), note: note.trim() }
+      : { id: crypto.randomUUID(), createdAt: new Date().toISOString(), primaryUrl: primary, relatedUrls, title: title.trim(), note: note.trim(),
+          ...(goal.trim() ? {goal:goal.trim()} : {}), ...(nextAction.trim() ? {nextAction:nextAction.trim()} : {}), ...(excerpt.trim() ? {excerpt:excerpt.trim()} : {}) }
     if (!validateCard(card)) {
       setSendError('Check the card fields before sending.')
       return
@@ -102,6 +107,10 @@ export function NewCard({ onNotice, deviceId, peers, capture }: { capture:Captur
       setPrimaryUrl('')
       setTitle('')
       setNote('')
+      setGoal('')
+      setNextAction('')
+      setExcerpt('')
+      setShowExcerpt(false)
       setRelated([])
       setCaptureMessage('')
     } catch (error) {
@@ -126,7 +135,7 @@ export function NewCard({ onNotice, deviceId, peers, capture }: { capture:Captur
       {captureError&&<p className="capture-notice capture-error" role="alert">{captureError}</p>}
       {draftWarning&&<p className="capture-notice capture-error" role="alert">{draftWarning}</p>}
       {pendingCapture&&<section className="capture-notice" aria-label="New captured page">
-        <p>Another page is ready. Keep your current draft, or replace its link and title. Your note, related links and device choice will stay.</p>
+        <p>Another page is ready. Keep your current draft, or replace its link, title and selected excerpt. Your other context and device choice will stay.</p>
         <div className="capture-actions">
           <button type="button" className="button button-primary" disabled={sending} onClick={()=>applyCapture(pendingCapture)}>Use captured page</button>
           <button type="button" className="button" onClick={()=>{void finishCapture(pendingCapture).catch(()=>{});setPendingCapture(null);setCaptureMessage('Your current draft is unchanged. Nothing was sent.')}}>Keep current draft</button>
@@ -147,7 +156,20 @@ export function NewCard({ onNotice, deviceId, peers, capture }: { capture:Captur
             <input id="title" name="title" maxLength={MAX_TITLE_LENGTH} placeholder="e.g. Pick up the weekend plans" value={title} onChange={(event) => setTitle(event.target.value)} />
           </div>
           <div className="form-section">
-            <div className="section-heading"><span className="step-number">02</span><h2>Bring the context</h2><span className="optional-label">Optional</span></div>
+            <div className="section-heading"><span className="step-number">02</span><h2>Resume plan</h2><span className="optional-label">Optional</span></div>
+            <p className="field-hint context-intro">A sentence or two helps you restart. Leave these blank for a quick link.</p>
+            <div className="label-row"><label htmlFor="next-action">Next action</label><span className="field-hint">{nextAction.length} / {MAX_NEXT_ACTION_LENGTH}</span></div>
+            <input id="next-action" name="nextAction" maxLength={MAX_NEXT_ACTION_LENGTH} placeholder="e.g. Check why the state cookie is missing on Safari" value={nextAction} onChange={event=>setNextAction(event.target.value)} />
+            <div className="label-row context-field"><label htmlFor="goal">Goal</label><span className="field-hint">{goal.length} / {MAX_GOAL_LENGTH}</span></div>
+            <input id="goal" name="goal" maxLength={MAX_GOAL_LENGTH} placeholder="e.g. Finish the OAuth callback fix" value={goal} onChange={event=>setGoal(event.target.value)} />
+            {!showExcerpt&&<button className="add-detail" type="button" onClick={()=>setShowExcerpt(true)}>Add a relevant detail or selected passage</button>}
+            {showExcerpt&&<>
+              <div className="label-row context-field"><label htmlFor="excerpt">Relevant detail</label><span className="field-hint">{excerpt.length} / {MAX_EXCERPT_LENGTH}</span></div>
+              <textarea id="excerpt" name="excerpt" rows={3} maxLength={MAX_EXCERPT_LENGTH} placeholder="Only text you choose to include. Review any selected passage before sending." value={excerpt} onChange={event=>setExcerpt(event.target.value)} />
+            </>}
+          </div>
+          <div className="form-section">
+            <div className="section-heading"><span className="step-number">03</span><h2>Bring the context</h2><span className="optional-label">Optional</span></div>
             <div className="label-row"><span className="field-label" id="related-label">Related links</span><span className="field-hint">{related.length} / {MAX_RELATED_LINKS}</span></div>
             <div className="related-inputs" role="group" aria-labelledby="related-label">
               {related.map((item, index) => (
@@ -189,6 +211,9 @@ export function NewCard({ onNotice, deviceId, peers, capture }: { capture:Captur
           <div className="preview-stack">
             <article className="preview-card">
               <div className="card-topline"><span className="card-icon"><Icon name="link" /></span><span className="card-kicker">YOUR HANDOFF CARD</span></div>
+              {nextAction.trim()&&<div className="preview-action"><span className="card-kicker">NEXT ACTION</span><p>{nextAction.trim()}</p></div>}
+              {goal.trim()&&<p className="preview-goal"><span className="card-kicker">GOAL</span>{goal.trim()}</p>}
+              {excerpt.trim()&&<div className="preview-excerpt"><span className="card-kicker">RELEVANT DETAIL</span><p>{excerpt.trim()}</p></div>}
               <h2>{title.trim() || (primary ? linkLabel(primary) : 'Your next starting point')}</h2>
               <p className={`preview-domain ${primary ? '' : 'placeholder-text'}`}>{primary ? linkLabel(primary) : 'Your primary link will appear here'}</p>
               <div className={`preview-note ${note.trim() ? '' : 'placeholder-text'}`}><Icon name="note" /><p>{note.trim() || 'Leave a little context. Your future self will thank you.'}</p></div>
