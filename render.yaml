@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: carry
+    runtime: node
+    plan: free
+    buildCommand: npx --yes pnpm@10.34.5 install --frozen-lockfile --prod=false && npx --yes pnpm@10.34.5 build
+    startCommand: node apps/api/src/server.ts
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 24.21.0
+      - key: NODE_ENV
+        value: production
+      - key: CARRY_SERVE_WEB
+        value: "1"
+      - key: libsql://carry-prod-khushvendra.aws-ap-south-1.turso.io
+        sync: false
+      - key: eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTA0OTA1NDgsImlkIjoiMDFhMGUxOGItNDgwMS03OWMzLTgwMjktYjRlMTM2YmQzZWJmIiwia2lkIjoiQ2JUSjVBQlB1MU1sX0g0Ql9aNk04ek8yNUFGdXR5a2praWZicWZxbzR5OCIsInJpZCI6IjQ3NmIxOWU5LWRjNGQtNDA0ZS1hOWVhLTJiMzZmYTAyYTM3NCJ9.UHSUiVGQH0kcAo8yiAFK-ZlfDc8y_p-1mw7Lg-enJdQPiAAHUSOgyRVrhlCwDAINR11xvOcEqe7kH7wQor7wDQ
+        sync: false

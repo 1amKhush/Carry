@@ -1,0 +1,24 @@
+{
+  "name": "carry",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=10 <11"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @carry/api --filter @carry/web run dev",
+    "build": "pnpm -r build",
+    "lint": "oxlint apps packages",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "preview": "pnpm --filter @carry/web preview",
+    "test:e2e": "pnpm --filter @carry/web test:e2e",
+    "dev:web": "pnpm --filter @carry/web dev",
+    "dev:api": "pnpm --filter @carry/api dev"
+  },
+  "devDependencies": {
+    "oxlint": "^1.81.0"
+  }
+}

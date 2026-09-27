@@ -1,0 +1,30 @@
+{
+  "name": "@carry/api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.ts",
+    "start": "node src/server.ts",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.ts",
+    "db:migrate": "node --env-file-if-exists=.env.turso.local src/migrate.ts",
+    "test:turso": "node --env-file-if-exists=.env.turso.local --test tests/turso.integration.ts"
+  },
+  "dependencies": {
+    "@carry/crypto": "workspace:*",
+    "@carry/protocol": "workspace:*",
+    "@fastify/rate-limit": "^10.0.0",
+    "@fastify/static": "^8.0.0",
+    "@libsql/client": "^0.18.0",
+    "fastify": "^5.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "typescript": "~6.0.2"
+  },
+  "files": [
+    "src"
+  ]
+}

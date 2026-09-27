@@ -1,0 +1,89 @@
+# Carry
+
+A small card that carries a link and its context between paired browser profiles.
+
+Milestone 3A–3C is implemented: durable SQLite/Turso delivery, key-backed identity, QR pairing with approval on both devices, client-encrypted cards, expiry, retries, and receipts. Render Free + Turso deployment configuration is included and the Turso integration has been verified. **Milestone 3D is not complete until the public deployment and actual-phone acceptance run are recorded.**
+
+## Develop
+
+Use Node.js 24 LTS and pnpm 10.34.5.
+
+```sh
+pnpm install
+pnpm dev
+```
+
+Open **http://127.0.0.1:5173** in two different browser profiles. Both the Vite app and the API bind to loopback by default. Vite proxies /api to the API on port 3001. Use that exact origin, or configure CARRY_ORIGIN to match the browser address.
+
+Choose **Pair device**, create an invitation, open its link in the other profile (or scan the QR on a reachable HTTPS deployment), compare all four verification-code groups, and approve on both screens. In **New card**, select the trusted device and send. **Inbox** polls every three seconds; **Continue** opens the original HTTP(S) destination in a new tab. No UUID copying remains.
+
+The API stores data in apps/api/data/carry.sqlite during development. Stop and restart `pnpm dev` to verify durability. Keep the same profile and origin to retain browser keys. Milestone 2’s localStorage UUID is ignored; its plaintext development routes are removed.
+
+## Verify
+
+```sh
+pnpm test
+pnpm typecheck
+pnpm lint
+pnpm build
+pnpm --filter @carry/web exec playwright install chromium
+pnpm test:e2e
+```
+
+For an installed Chrome, use `CHROME_PATH=/usr/bin/google-chrome pnpm test:e2e`. Browser tests launch isolated API processes with temporary SQLite files. They use separate persistent profiles, stop/restart the real API, test exact-link Continue, lost-response retry, receipts, polling, Unpair, invalid URLs, and automated desktop/mobile accessibility. Mobile emulation is not an actual-phone test.
+
+See [the Turso/Render preparation verification](docs/verification-0004.md) and [the original local verification record](docs/verification-0003.md) for completed checks and their limits.
+
+## Render + Turso deployment
+
+Use [the Render deployment guide](docs/render-deployment.md) for the exact build/start commands and environment settings. [render.yaml](render.yaml) also supports Blueprint setup. Fastify serves the built app and API from one HTTPS origin; Turso retains data across service restarts. Set the two Turso values in Render's service environment. The API uses Render's HTTPS URL automatically.
+
+The SQL schema is applied on startup. To explicitly migrate or verify the database using the ignored API credentials file:
+
+```sh
+pnpm --filter @carry/api db:migrate
+pnpm --filter @carry/api test:turso
+```
+
+See [0004 — Render and Turso](docs/decisions/0004-render-turso.md) for transaction behavior and the limits of cloud verification.
+
+## Alternative: Docker on a persistent-disk server
+
+Copy .env.example to .env on a persistent-disk server and set CARRY_DOMAIN to its public DNS hostname. Then run:
+
+```sh
+docker compose up -d --build
+docker compose ps
+```
+
+Caddy serves HTTPS; the API container is private. Named volumes retain SQLite and TLS state. Do not delete the volumes during redeployment. See [deployment and actual-device acceptance](docs/real-device-acceptance.md).
+
+Configuration:
+- TURSO_DATABASE_URL / TURSO_AUTH_TOKEN: select remote libSQL storage; API-only secrets. Required on Render.
+- CARRY_ORIGIN: exact external origin, HTTPS required except loopback. Defaults to RENDER_EXTERNAL_URL on Render, otherwise http://127.0.0.1:5173.
+- CARRY_DB_PATH: SQLite file. Development default: ./data/carry.sqlite from the API working directory.
+- PORT: platform-provided port; also binds to 0.0.0.0. CARRY_API_PORT defaults to 3001 when PORT is absent.
+- CARRY_API_HOST: default 127.0.0.1; the container binds 0.0.0.0 on its private network.
+- CARRY_SERVE_WEB=1: serve the built web app with a restrictive CSP.
+
+A phone’s 127.0.0.1 points to the phone. Use the same reachable HTTPS hostname on both devices.
+
+## Security and delivery contract
+
+The relay receives versioned encrypted envelopes, never a plaintext Card. Shared Zod schemas validate cards in the browser and envelope shapes at the API. P-256 ECDSA authenticates devices and signs pairing approvals/envelopes. Fresh ephemeral P-256 ECDH, HKDF-SHA-256, and AES-256-GCM encrypt each card for its recipient. Private keys are non-extractable CryptoKeys in IndexedDB. Session tokens remain in memory; the relay stores their hashes. Requests require a session and an active pair.
+
+**Queued** means the database committed. **Received** means the recipient decrypted, validated, and saved the envelope locally. **Continued** means Continue was pressed, not that the destination finished loading. Receipts never delete the envelope. Cards expire after seven days; cleanup runs on startup and at most once a minute while the service is awake; reads always filter expiry. Retries reuse a locally saved envelope and ID. Unpair revokes the pair and removes its queued/local envelopes.
+
+Clearing a browser profile’s site data loses its keys and requires pairing again. Browser encryption protects stored relay data; malicious code served to the browser can still use its keys. The cryptographic format has tests but has not received an independent security audit. Routing, timing, ciphertext size, public keys, and receipt states remain visible to the relay. This small relay has a 1,000-device registration cap, a 10,000-envelope queue cap, and request rate limits; it is not a multi-tenant service.
+
+See [0003 — secure handoff](docs/decisions/0003-secure-handoff.md) for exact byte formats, signing transcripts, trust rules, retention and limitations.
+
+## Workspace
+
+- apps/web — card editor, pairing, Inbox, local keys/envelopes, delivery states.
+- apps/api — authenticated Fastify relay, SQLite/Turso, pairing, expiry, receipts, production static serving.
+- packages/protocol — Card and versioned envelope validation.
+- packages/crypto — browser-compatible crypto primitives and format tests.
+- docs/decisions — implementation decisions.
+
+The extension, native share extensions, notifications, and AI are later milestones.

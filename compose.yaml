@@ -1,0 +1,36 @@
+services:
+  relay:
+    build: .
+    restart: unless-stopped
+    init: true
+    read_only: true
+    environment:
+      CARRY_ORIGIN: https://${CARRY_DOMAIN:?Set CARRY_DOMAIN in .env}
+    volumes:
+      - relay_data:/data
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      CARRY_DOMAIN: ${CARRY_DOMAIN:?Set CARRY_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      relay:
+        condition: service_healthy
+volumes:
+  relay_data:
+  caddy_data:
+  caddy_config:
