@@ -3,33 +3,8 @@ import { chromium, type BrowserContext, type Page } from '@playwright/test'
 import { join } from 'node:path'
 import { test,expect } from './relay.ts'
 
-const primary=(p:Page)=>p.getByRole('textbox',{name:'Primary link Required',exact:true})
-const send=(p:Page)=>p.getByRole('button',{name:'Send card',exact:true})
-async function navigate(p:Page,name:string){await p.getByRole('navigation').getByRole('link',{name,exact:true}).click()}
-async function pair(a:Page,b:Page,origin:string) {
-  await a.goto(origin+'/#pair')
-  const previous=await a.getByLabel('Invitation link',{exact:true}).inputValue({timeout:200}).catch(()=>'')
-  await a.getByRole('button',{name:'Create invitation'}).click()
-  await expect(a.getByLabel('Invitation link',{exact:true})).not.toHaveValue(previous)
-  const invitation=await a.getByLabel('Invitation link',{exact:true}).inputValue()
-  await expect(a.getByRole('img',{name:'Scan this QR invitation on your other device'})).toBeVisible()
-  await b.goto(invitation)
-  await expect(b.getByLabel('Verification code')).toBeVisible()
-  await expect(a.getByLabel('Verification code')).toHaveText(await b.getByLabel('Verification code').innerText())
-  await a.getByRole('button',{name:'Codes match — Approve'}).click()
-  await expect(a.getByRole('button',{name:/Approved here/})).toBeDisabled()
-  await expect(a.getByRole('region',{name:'Trusted devices'}).getByRole('button',{name:'Unpair'})).toHaveCount(0)
-  await b.getByRole('button',{name:'Codes match — Approve'}).click()
-  await expect(a.getByRole('region',{name:'Trusted devices'}).getByRole('button',{name:'Unpair'})).toBeVisible()
-  await expect(b.getByRole('region',{name:'Trusted devices'}).getByRole('button',{name:'Unpair'})).toBeVisible()
-}
-async function submit(p:Page,url:string,title:string) {
-  await navigate(p,'New card')
-  await primary(p).fill(url)
-  await p.getByLabel('Give it a name').fill(title)
-  await send(p).click()
-  await expect(p.locator('.notice')).toContainText('Queued.')
-}
+import { primary, send, navigate, pair, submit } from './helpers.ts'
+
 test('persistent profiles pair; recipient closes; encrypted card survives API restart; exact Continue and receipts survive reload',async({page,relay})=>{
   const options={executablePath:process.env.CHROME_PATH,headless:true,viewport:page.viewportSize()!,reducedMotion:'reduce' as const}
   let sender:BrowserContext|undefined,receiver:BrowserContext|undefined

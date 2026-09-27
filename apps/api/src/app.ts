@@ -35,6 +35,9 @@ export function createApp(options:{databasePath?:string;database?:RelayDatabase;
   app.addHook('onRequest',async(req,reply)=>{
     reply.header('Cache-Control','no-store').header('X-Content-Type-Options','nosniff').header('Referrer-Policy','no-referrer')
     if(options.serveWeb)reply.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+    // A missing share worker must never pass plaintext into API/body parsing.
+    // The network may still have carried this POST: surface the failure in the editor.
+    if(req.method==='POST'&&req.url.split('?')[0]==='/share-target')return reply.code(303).header('Location','/#capture-error=share-unavailable').send()
     if(req.headers.origin&&req.headers.origin!==origin)throw new RelayError(403,'Origin not allowed.')
     if(req.url.startsWith('/api/'))await cleanup()
   })

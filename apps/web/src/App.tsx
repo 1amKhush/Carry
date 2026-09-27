@@ -9,10 +9,12 @@ import { Outbox } from './Outbox'
 import { Icon } from './Icon'
 import { Inbox } from './Inbox'
 import { NewCard } from './NewCard'
+import { readCaptureLocation, type CaptureRequest } from './capture/importDraft'
 import './App.css'
 
 function currentScreen() {return location.hash.startsWith('#pair')?'pair':location.hash==='#inbox'?'inbox':'new'}
-export default function App() {
+export default function App({initialCapture=null}:{initialCapture?:CaptureRequest|null}) {
+  const [capture,setCapture]=useState(initialCapture)
   const [screen,setScreen]=useState(currentScreen)
   const [identity,setIdentity]=useState<Identity|null>(null)
   const [peers,setPeers]=useState<Pair[]>([])
@@ -28,7 +30,10 @@ export default function App() {
     return ()=>clearInterval(interval)
   },[refreshPeers])
   useEffect(()=>{
-    function navigate(){setScreen(currentScreen());setNotice('');mainRef.current?.focus()}
+    function navigate(){
+      void readCaptureLocation().then(request=>{if(request){setCapture(request);setScreen('new')}})
+      setScreen(currentScreen());setNotice('');mainRef.current?.focus()
+    }
     window.addEventListener('hashchange',navigate)
     return ()=>window.removeEventListener('hashchange',navigate)
   },[])
@@ -50,7 +55,7 @@ export default function App() {
         <DevicePanel ready={Boolean(identity)} error={error}/>
         <div className="notice" role="status">{notice&&<><Icon name="check"/>{notice}</>}</div>
         {identity&&<>
-          <div hidden={screen!=='new'}><NewCard deviceId={identity.public.id} peers={peers} onNotice={setNotice}/>{screen==='new'&&<Outbox/>}</div>
+          <div hidden={screen!=='new'}><NewCard capture={capture} deviceId={identity.public.id} peers={peers} onNotice={setNotice}/>{screen==='new'&&<Outbox/>}</div>
           {screen==='inbox'&&<Inbox/>}
           {screen==='pair'&&<PairDevices deviceId={identity.public.id} peers={peers} onChange={refreshPeers}/>}
         </>}

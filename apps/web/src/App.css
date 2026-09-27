@@ -242,3 +242,10 @@ select { width:100%; min-height:44px; margin-top:9px; padding:10px 12px; font:in
  .nav-link { padding-inline:6px; gap:7px; }
  select {font-size:16px;}
 }
+
+.capture-help { margin: -12px 0 24px; max-width: 760px; color: #626b60; font-size: .85rem; line-height: 1.65; }
+.capture-help p { margin: 0 0 4px; }
+.capture-notice { margin: 0 0 20px; padding: 16px 20px; border: 1px solid #cbd3bf; border-radius: 12px; background: #eef3e8; color: #35452e; line-height: 1.6; }
+.capture-notice p { margin: 0 0 12px; }
+.capture-error { color: #863d30; border-color: #dfc4b8; background: #fff2eb; }
+.capture-actions { display: flex; flex-wrap: wrap; gap: 12px; }

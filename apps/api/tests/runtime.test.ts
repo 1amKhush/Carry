@@ -71,3 +71,12 @@ test('async local transactions isolate concurrent requests and roll back only th
   assert.equal((await read)!.bundle,'before')
   assert.equal((await db.get('SELECT bundle FROM devices WHERE id=?','other'))!.bundle,'committed')
 })
+
+test('a share POST without interception is redirected without parsing or echoing its body',async t=>{
+  const app=createApp({rateLimit:false})
+  t.after(()=>app.close())
+  const response=await app.inject({method:'POST',url:'/share-target',headers:{'content-type':'application/json'},payload:'not JSON: private shared content'})
+  assert.equal(response.statusCode,303)
+  assert.equal(response.headers.location,'/#capture-error=share-unavailable')
+  assert.equal(response.body,'')
+})

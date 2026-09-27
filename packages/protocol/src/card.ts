@@ -8,6 +8,13 @@ function isHttpUrl(value: string): boolean {
   if (value !== value.trim() || !/^https?:\/\//i.test(value)) return false
   try { const url = new URL(value); return url.protocol === 'http:' || url.protocol === 'https:' } catch { return false }
 }
+// Capture and sending must validate without rewriting query, fragment or path bytes.
+export function parseExactHttpUrl(input: string): string | null {
+  const value = input.trim()
+  // Raw whitespace/control bytes must not be silently removed by URL parsing.
+  // eslint-disable-next-line no-control-regex
+  return value.length <= MAX_URL_LENGTH && !/[\u0000-\u0020\u007f]/.test(value) && isHttpUrl(value) ? value : null
+}
 export function parseHttpUrl(input: string): string | null {
   const value = input.trim()
   return value.length <= MAX_URL_LENGTH && isHttpUrl(value) ? new URL(value).href : null

@@ -1,27 +1,61 @@
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useEffectEvent, useRef, useState, type FormEvent } from 'react'
 import { linkLabel } from './card'
-import { MAX_RELATED_LINKS, MAX_TITLE_LENGTH, MAX_NOTE_LENGTH, MAX_URL_LENGTH, parseHttpUrl, validateCard, type Card } from '@carry/protocol'
+import { MAX_RELATED_LINKS, MAX_TITLE_LENGTH, MAX_NOTE_LENGTH, MAX_URL_LENGTH, parseExactHttpUrl, validateCard, type Card } from '@carry/protocol'
 import { sendHandoff } from './lib/handoffs'
 import { Icon } from './Icon'
 import type { Pair } from '@carry/protocol/secure'
 import { peerLabel } from './lib/pairing'
+import { finishCapture, type CaptureRequest } from './capture/importDraft'
+import { loadEditorDraft, saveEditorDraft } from './capture/editorDraft'
 
 interface RelatedInput { id: number; value: string }
 
-export function NewCard({ onNotice, deviceId, peers }: { onNotice: (message: string) => void; deviceId: string; peers: Pair[] }) {
-  const [recipient, setRecipient] = useState('')
+export function NewCard({ onNotice, deviceId, peers, capture }: { capture:CaptureRequest|null; onNotice: (message: string) => void; deviceId: string; peers: Pair[] }) {
+  const [saved] = useState(loadEditorDraft)
+  const [recipient, setRecipient] = useState(saved.recipient)
+  const [captureMessage,setCaptureMessage]=useState('')
+  const [captureError,setCaptureError]=useState('')
+  const [draftWarning,setDraftWarning]=useState('')
+  const [pendingCapture,setPendingCapture]=useState<CaptureRequest|null>(null)
+  const lastCapture=useRef<string|null>(null)
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState('')
-  const [primaryUrl, setPrimaryUrl] = useState('')
-  const [title, setTitle] = useState('')
-  const [note, setNote] = useState('')
-  const [related, setRelated] = useState<RelatedInput[]>([])
+  const [primaryUrl, setPrimaryUrl] = useState(saved.primaryUrl)
+  const [title, setTitle] = useState(saved.title)
+  const [note, setNote] = useState(saved.note)
+  const [related, setRelated] = useState<RelatedInput[]>(saved.related)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const nextRelatedId = useRef(1)
-  const sendAttempt = useRef<{ content: string; card: Card } | null>(null)
+  const nextRelatedId = useRef(Math.max(0,...saved.related.map(r=>r.id))+1)
+  const sendAttempt = useRef<{ content: string; card: Card } | null>(saved.attempt)
   const selectedPair = peers.find(p => p.id === recipient) ?? (peers.length === 1 ? peers[0] : undefined)
-  const primary = parseHttpUrl(primaryUrl)
-  const previewLinks = related.map((item) => parseHttpUrl(item.value)).filter((url): url is string => url !== null)
+  const primary = parseExactHttpUrl(primaryUrl)
+  const previewLinks = related.map((item) => parseExactHttpUrl(item.value)).filter((url): url is string => url !== null)
+
+  function persistDraft(url=primaryUrl,name=title) {
+    const saved=saveEditorDraft({primaryUrl:url,title:name,note,recipient,related,attempt:sendAttempt.current})
+    setDraftWarning(saved?'':'This browser cannot save the draft for reload. Keep this tab open until you finish.')
+    return saved
+  }
+  const persistCurrent=useEffectEvent(()=>persistDraft())
+  useEffect(()=>{persistCurrent()},[primaryUrl,title,note,recipient,related,sending])
+  function applyCapture(request:CaptureRequest) {
+    if(!('draft' in request.result))return
+    const {draft,message}=request.result
+    sendAttempt.current=null
+    setPrimaryUrl(draft.url);setTitle(draft.title);setErrors({});setSendError('')
+    setCaptureError('');setCaptureMessage(message);setPendingCapture(null)
+    if(persistDraft(draft.url,draft.title))void finishCapture(request).catch(()=>{})
+  }
+  const receiveCapture=useEffectEvent((request:CaptureRequest)=>{
+    if(lastCapture.current===request.id)return
+    lastCapture.current=request.id
+    if('error' in request.result){setCaptureError(request.result.error);void finishCapture(request).catch(()=>{});return}
+    if(sending||primaryUrl||title||note||related.length)setPendingCapture(request)
+    else applyCapture(request)
+  })
+  // Synchronize a new external capture with the existing, independently editable form.
+  // eslint-disable-next-line react/set-state-in-effect
+  useEffect(()=>{if(capture)receiveCapture(capture)},[capture])
 
   function clearError(name: string) {
     setErrors((previous) => ({ ...previous, [name]: '' }))
@@ -38,7 +72,7 @@ export function NewCard({ onNotice, deviceId, peers }: { onNotice: (message: str
     const relatedUrls: string[] = []
     for (const item of related) {
       if (!item.value.trim()) continue
-      const url = parseHttpUrl(item.value)
+      const url = parseExactHttpUrl(item.value)
       if (url) relatedUrls.push(url)
       else validationErrors[`related-${item.id}`] = 'Use a complete http:// or https:// link, or leave this blank.'
     }
@@ -59,6 +93,7 @@ export function NewCard({ onNotice, deviceId, peers }: { onNotice: (message: str
       return
     }
     sendAttempt.current = { content, card }
+    persistDraft()
     setSending(true)
     try {
       await sendHandoff(card, selectedPair)
@@ -68,6 +103,7 @@ export function NewCard({ onNotice, deviceId, peers }: { onNotice: (message: str
       setTitle('')
       setNote('')
       setRelated([])
+      setCaptureMessage('')
     } catch (error) {
       setSendError(error instanceof Error ? error.message : 'Unable to send. Your draft is still here.')
     } finally {
@@ -82,6 +118,20 @@ export function NewCard({ onNotice, deviceId, peers }: { onNotice: (message: str
         <h1 id="new-heading">New card<span className="accent">.</span></h1>
         <p>A link, a few thoughts, and everything you need to carry on.</p>
       </div>
+      <div className="capture-help">
+        <p>{import.meta.env.VITE_ENABLE_SHARE_TARGET==='1'?'Paste a link, use the Carry extension, or share to Carry after installing it in a supported Android browser.':'Use the Carry extension on your laptop, or paste a link here from any browser.'}</p>
+        <p>Your draft stays in this tab until you send it. Capturing a page never sends it automatically.</p>
+      </div>
+      {captureMessage&&<p className="capture-notice" role="status">{captureMessage}</p>}
+      {captureError&&<p className="capture-notice capture-error" role="alert">{captureError}</p>}
+      {draftWarning&&<p className="capture-notice capture-error" role="alert">{draftWarning}</p>}
+      {pendingCapture&&<section className="capture-notice" aria-label="New captured page">
+        <p>Another page is ready. Keep your current draft, or replace its link and title. Your note, related links and device choice will stay.</p>
+        <div className="capture-actions">
+          <button type="button" className="button button-primary" disabled={sending} onClick={()=>applyCapture(pendingCapture)}>Use captured page</button>
+          <button type="button" className="button" onClick={()=>{void finishCapture(pendingCapture).catch(()=>{});setPendingCapture(null);setCaptureMessage('Your current draft is unchanged. Nothing was sent.')}}>Keep current draft</button>
+        </div>
+      </section>}
       <div className="editor-layout">
         <form className="editor" onSubmit={submit} noValidate>
           <fieldset className="editor-fields" disabled={sending}>

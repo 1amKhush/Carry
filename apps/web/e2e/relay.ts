@@ -1,4 +1,5 @@
 import { test as base, expect } from '@playwright/test'
+import { existsSync, readFileSync } from 'node:fs'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { once } from 'node:events'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -7,7 +8,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createServer } from 'node:net'
 
-interface Relay { origin:string; directory:string; databasePath:string; restart:()=>Promise<void> }
+interface Relay { origin:string; directory:string; databasePath:string; restart:()=>Promise<void>; sharePosts:()=>number }
 export const test=base.extend<{relay:Relay}>({
   relay:async ({browserName},provide)=>{
     const directory=await mkdtemp(join(tmpdir(),'carry-e2e-'+browserName+'-'))
@@ -18,10 +19,10 @@ export const test=base.extend<{relay:Relay}>({
     const origin='http://127.0.0.1:'+port,databasePath=join(directory,'relay.sqlite')
     let child:ChildProcess|undefined
     async function start() {
-      child=spawn(process.execPath,['src/server.ts'],{
+      child=spawn(process.execPath,['--import',fileURLToPath(new URL('./observe-server.ts',import.meta.url)),'src/server.ts'],{
         cwd:fileURLToPath(new URL('../../api/',import.meta.url)),
         // Always isolate browser tests from any exported production database/settings.
-        env:{...process.env,TURSO_DATABASE_URL:undefined,TURSO_AUTH_TOKEN:undefined,RENDER:undefined,RENDER_EXTERNAL_URL:undefined,PORT:undefined,CARRY_API_PORT:String(port),CARRY_API_HOST:'127.0.0.1',CARRY_ORIGIN:origin,CARRY_SERVE_WEB:'1',CARRY_DB_PATH:databasePath},
+        env:{...process.env,TURSO_DATABASE_URL:undefined,TURSO_AUTH_TOKEN:undefined,RENDER:undefined,RENDER_EXTERNAL_URL:undefined,PORT:undefined,CARRY_API_PORT:String(port),CARRY_API_HOST:'127.0.0.1',CARRY_ORIGIN:origin,CARRY_SERVE_WEB:'1',CARRY_DB_PATH:databasePath,CARRY_E2E_SHARE_COUNTER:join(directory,'share-posts')},
         stdio:['ignore','pipe','pipe'],
       })
       await new Promise<void>((resolve,reject)=>{
@@ -34,7 +35,7 @@ export const test=base.extend<{relay:Relay}>({
       })
     }
     async function stop() {if(child&&child.exitCode===null){const exited=once(child,'exit');child.kill('SIGTERM');await exited}}
-    try {await start();await provide({origin,directory,databasePath,restart:async()=>{await stop();await start()}})}
+    try {await start();await provide({origin,directory,databasePath,sharePosts:()=>existsSync(join(directory,'share-posts'))?readFileSync(join(directory,'share-posts')).length:0,restart:async()=>{await stop();await start()}})}
     finally {await stop();await rm(directory,{recursive:true,force:true})}
   },
 })

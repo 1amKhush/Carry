@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "node --test tests/*.test.ts",
-    "test:e2e": "pnpm build && playwright test"
+    "test:e2e": "pnpm build --mode share-preview && playwright test",
+    "test:extension": "playwright test --config playwright.extension.config.ts"
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.3.0",

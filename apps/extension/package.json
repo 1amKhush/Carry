@@ -1,0 +1,22 @@
+{
+  "name": "@carry/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "build:edge": "wxt build -b edge",
+    "zip": "wxt zip",
+    "typecheck": "wxt prepare && tsc --noEmit",
+    "test": "node --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@carry/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "wxt": "^0.21.4",
+    "typescript": "~6.0.2",
+    "@types/node": "^24.13.3"
+  }
+}
