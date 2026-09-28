@@ -21,5 +21,7 @@ export function normalizeCapture(input:unknown):CaptureResult {
   const title=typeof value.title==='string'?value.title:''
   const excerpt=typeof value.excerpt==='string'?value.excerpt.trim():''
   const tooLong=excerpt.length>MAX_EXCERPT_LENGTH
-  return {draft:{url:exact,title:title.slice(0,MAX_TITLE_LENGTH),excerpt:tooLong?'':excerpt},message:tooLong?'The selected text is too long. Select a passage under 1,200 characters or add a shorter excerpt below. Nothing was sent.':title.length>MAX_TITLE_LENGTH?'The page title was shortened. Review your draft before sending.':'Page captured. Review your draft and choose a device. Nothing has been sent.'}
+  const message=tooLong?'The selected text is too long. Select a passage under 1,200 characters or add a shorter excerpt below. Nothing was sent.':title.length>MAX_TITLE_LENGTH?'The page title was shortened. Review your draft before sending.':'Page captured. Review your draft and choose a device. Nothing has been sent.'
+  const selectionMessage=value.selectionLinkUnavailable===true?' The original page URL is saved, but it was too long to link to the selected passage.':excerpt&&exact.includes(':~:text=')?' On supported pages, Continue opens the selected passage; identical text may match an earlier occurrence.':''
+  return {draft:{url:exact,title:title.slice(0,MAX_TITLE_LENGTH),excerpt:tooLong?'':excerpt},message:message+selectionMessage}
 }

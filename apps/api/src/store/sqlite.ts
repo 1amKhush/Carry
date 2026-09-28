@@ -53,6 +53,7 @@ export class RelayStore {
     await this.transaction(async tx=>{
       for(const table of ['envelopes','dedupe','challenges','sessions','invitations'])await tx.run(`DELETE FROM ${table} WHERE expires_at<=?`,now)
       await tx.run('DELETE FROM free_ai_usage WHERE day<?',Math.floor(now/86400000)-1)
+      await tx.run('DELETE FROM free_ai_successes WHERE day<?',Math.floor(now/86400000)-1)
     })
   }
   close() {return this.db.close()}

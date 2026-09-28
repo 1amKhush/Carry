@@ -22,7 +22,7 @@ test('shared free key stays server-side; authenticated recipient gets bounded fr
     if(url.endsWith('/models'))return Response.json({data:[{id:'paid/expensive',pricing:{prompt:'1',completion:'1'}},{id:'vendor/first:free',pricing:{prompt:'0',completion:'0'}},{id:'vendor/second:free',pricing:{prompt:'0',completion:'0'}}]})
     const body=JSON.parse(String(init?.body));models.push(body.model);seenBodies.push(String(init?.body))
     if(first&&body.model==='openrouter/free')return new Response('',{status:429})
-    if(first&&body.model==='vendor/first:free')return new Response('',{status:503})
+    if(first&&body.model==='vendor/first:free')return Response.json({choices:[{message:{content:'{}'}}]})
     first=false
     return Response.json({choices:[{message:{content:JSON.stringify(plan)}}]})
   }
@@ -46,11 +46,69 @@ test('shared free key stays server-side; authenticated recipient gets bounded fr
   assert.deepEqual(models,['openrouter/free','vendor/first:free','vendor/second:free'])
   assert.ok(seenBodies.every(body=>body.includes('Fix callback')))
   assert.ok(seenBodies.every(body=>!body.includes('sk-or-test-server-only')))
-  for(let i=0;i<4;i++)assert.equal((await app.inject({method:'POST',url:'/api/v1/ai/free',headers:rh,payload})).statusCode,200)
-  assert.equal((await app.inject({method:'POST',url:'/api/v1/ai/free',headers:rh,payload})).statusCode,429)
+  const concurrent=await Promise.all(Array.from({length:5},()=>app.inject({method:'POST',url:'/api/v1/ai/free',headers:rh,payload})))
+  assert.deepEqual(concurrent.map(response=>response.statusCode).sort(),[200,200,200,200,429])
   assert.equal(Number((await app.inject({url:'/api/v1/ai/free/status',headers:rh})).json().perDeviceDailyLimit),5)
-  const stored=JSON.stringify([await database.all('SELECT * FROM free_ai_usage'),await database.all('SELECT * FROM envelopes')])
+  const attempts=Number((await database.get('SELECT requests FROM free_ai_usage WHERE device_id=?',recipient.public.id))?.requests)
+  assert.ok(attempts>=7&&attempts<=8)
+  assert.equal(Number((await database.get('SELECT plans FROM free_ai_successes WHERE device_id=?',recipient.public.id))?.plans),5)
+  const stored=JSON.stringify([await database.all('SELECT * FROM free_ai_usage'),await database.all('SELECT * FROM free_ai_successes'),await database.all('SELECT * FROM envelopes')])
   for(const secret of ['Fix callback','Private task','sk-or-test-server-only'])assert.equal(stored.includes(secret),false)
+})
+
+test('a platform-level OpenRouter 429 does not spend a plan or retry another model',async t=>{
+  let calls=0,catalogCalls=0
+  const upstream:typeof fetch=async(input)=>{
+    if(String(input).endsWith('/models')){catalogCalls++;return Response.json({data:[]})}
+    calls++
+    if(calls===1)return new Response('',{status:429,headers:{'X-RateLimit-Limit':'50','X-RateLimit-Remaining':'0'}})
+    return Response.json({choices:[{message:{content:JSON.stringify(plan)}}]})
+  }
+  const database=new SqliteDatabase(':memory:')
+  const app=createApp({origin,rateLimit:false,database,freeAiKey:'sk-or-test-server-only',freeAiFetch:upstream})
+  t.after(()=>app.close())
+  const sender=await generateIdentity(),recipient=await generateIdentity()
+  const sh=await authenticate(app,sender),rh=await authenticate(app,recipient),paired=await pair(app,sender,recipient,sh,rh)
+  const card=content(),envelope=await encryptCard(sender,recipient.public,paired.id,card)
+  assert.equal((await app.inject({method:'POST',url:'/api/v1/envelopes',headers:sh,payload:envelope})).statusCode,201)
+  const payload={cardId:card.id,input:buildResumeInput(card)}
+  const limited=await app.inject({method:'POST',url:'/api/v1/ai/free',headers:rh,payload})
+  assert.equal(limited.statusCode,429)
+  assert.match(limited.json().error,/OpenRouter.*rate limited/)
+  assert.equal(calls,1)
+  assert.equal(catalogCalls,0)
+  assert.equal(await database.get('SELECT plans FROM free_ai_successes WHERE device_id=?',recipient.public.id),undefined)
+  assert.equal((await app.inject({method:'POST',url:'/api/v1/ai/free',headers:rh,payload})).statusCode,200)
+  assert.equal(Number((await database.get('SELECT plans FROM free_ai_successes WHERE device_id=?',recipient.public.id))?.plans),1)
+  assert.equal(Number((await database.get('SELECT requests FROM free_ai_usage WHERE device_id=?',recipient.public.id))?.requests),2)
+})
+
+test('unusable free output does not consume a successful plan but has a bounded retry budget',async t=>{
+  let generations=0
+  const upstream:typeof fetch=async(input)=>{
+    if(String(input).endsWith('/models'))return Response.json({data:[{id:'vendor/first:free',pricing:{prompt:'0',completion:'0'}},{id:'vendor/second:free',pricing:{prompt:'0',completion:'0'}}]})
+    generations++
+    return Response.json({choices:[{message:{content:'{}'}}]})
+  }
+  const database=new SqliteDatabase(':memory:')
+  const app=createApp({origin,rateLimit:false,database,freeAiKey:'sk-or-test-server-only',freeAiFetch:upstream})
+  t.after(()=>app.close())
+  const sender=await generateIdentity(),recipient=await generateIdentity()
+  const sh=await authenticate(app,sender),rh=await authenticate(app,recipient),paired=await pair(app,sender,recipient,sh,rh)
+  const card=content(),envelope=await encryptCard(sender,recipient.public,paired.id,card)
+  assert.equal((await app.inject({method:'POST',url:'/api/v1/envelopes',headers:sh,payload:envelope})).statusCode,201)
+  const payload={cardId:card.id,input:buildResumeInput(card)}
+  for(let i=0;i<4;i++) {
+    const response=await app.inject({method:'POST',url:'/api/v1/ai/free',headers:rh,payload})
+    assert.equal(response.statusCode,502,response.body)
+    assert.match(response.json().error,/usable plan/)
+  }
+  const limited=await app.inject({method:'POST',url:'/api/v1/ai/free',headers:rh,payload})
+  assert.equal(limited.statusCode,429)
+  assert.match(limited.json().error,/retry allowance/)
+  assert.equal(generations,12)
+  assert.equal(await database.get('SELECT plans FROM free_ai_successes WHERE device_id=?',recipient.public.id),undefined)
+  assert.equal(Number((await database.get('SELECT requests FROM free_ai_usage WHERE device_id=?',recipient.public.id))?.requests),12)
 })
 
 test('free assistance fails closed without a server key',async t=>{

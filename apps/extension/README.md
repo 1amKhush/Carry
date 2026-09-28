@@ -1,6 +1,6 @@
 # Carry this page — Chrome and Edge
 
-The toolbar action reads only the clicked tab's URL and title through `activeTab`. A separate **Carry selected text** right-click action imports only the explicitly selected passage through `contextMenus` and refuses selections in editable form fields. Both open Carry's existing New card editor. The extension has no host permissions, content scripts, device keys, database credentials, or relay client. The payload travels in a URL fragment and is removed by Carry on load. Only pressing **Send** creates an encrypted handoff.
+The toolbar action reads only the clicked tab's URL and title through `activeTab`. A separate **Carry selected text** right-click action imports only the explicitly selected passage through `contextMenus`, builds a text-fragment link from that selection, and refuses selections in editable form fields. Both open Carry's existing New card editor. The extension has no host permissions, content scripts, device keys, database credentials, or relay client. The payload travels in a URL fragment and is removed by Carry on load. Only pressing **Send** creates an encrypted handoff.
 
 ## Build and load
 
@@ -15,7 +15,7 @@ pnpm --filter @carry/extension build:edge
 - **Chrome:** open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select `apps/extension/.output/chrome-mv3`.
 - **Edge:** open `edge://extensions`, enable Developer mode, choose **Load unpacked**, and select `apps/extension/.output/edge-mv3`.
 
-Pin **Carry this page** from the browser's extensions menu. Open an HTTP(S) page and click the Carry icon for URL/title capture. To include a short passage, highlight text on the page, right-click and choose **Carry selected text**. Review the prefilled excerpt, add a goal and next action if useful, select a paired device, then press Send. Restricted pages and editable form selections open Carry with an explanation and a usable form. Close any already-loaded Carry tabs and reload the unpacked extension after updating its build.
+Pin **Carry this page** from the browser's extensions menu. Open an HTTP(S) page and click the Carry icon for URL/title capture. To include a short passage, highlight text on the page, right-click and choose **Carry selected text**. Review the prefilled excerpt and page link, add a goal and next action if useful, select a paired device, then press Send. On a supporting page, Continue scrolls to and highlights the passage. If the same text occurs more than once, the browser may pick an earlier match; changed text, browser support, and page opt-outs also affect highlighting. A page URL too long for a text fragment keeps the original link and shows an explanation in the draft. Restricted pages and editable form selections open Carry with an explanation and a usable form. Close any already-loaded Carry tabs and reload the unpacked extension after updating its build.
 
 The release defaults to `https://carry-hhc6.onrender.com`. Deploy the matching web-app update before using the new extension. For another deployment or local development, use a public app origin without a trailing slash:
 

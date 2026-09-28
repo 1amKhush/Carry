@@ -1,15 +1,9 @@
-import { buildResumeInput, resumeRequestBody, validateResumePlan, SYSTEM_PROMPT, type ResumeInput, type ResumePlan } from '@carry/protocol/resume-ai'
-export { buildResumeInput, resumeRequestBody, validateResumePlan, SYSTEM_PROMPT, type ResumeInput, type ResumePlan }
+import { buildResumeInput, parseResumeContent, resumeRequestBody, validateResumePlan, SYSTEM_PROMPT, type ResumeInput, type ResumePlan } from '@carry/protocol/resume-ai'
+export { buildResumeInput, parseResumeContent, resumeRequestBody, validateResumePlan, SYSTEM_PROMPT, type ResumeInput, type ResumePlan }
 
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 export const FREE_MODEL = 'openrouter/free'
 
-export function parseResumeContent(content:string,input:ResumeInput):ResumePlan {
-  if(content.length>12_000)throw new Error('AI returned an invalid plan. Your card is still ready to Continue.')
-  const trimmed=content.trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i,'$1')
-  try{return validateResumePlan(JSON.parse(trimmed),input)}
-  catch{throw new Error('AI returned an invalid plan. Your card is still ready to Continue.')}
-}
 export async function requestResumePlan(input: ResumeInput, key: string, model: string): Promise<ResumePlan> {
   const body = resumeRequestBody(input, model)
   const controller = new AbortController()

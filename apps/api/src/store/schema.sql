@@ -41,3 +41,8 @@ CREATE TABLE IF NOT EXISTS free_ai_usage (
   PRIMARY KEY (day,device_id)
 ) STRICT;
 CREATE INDEX IF NOT EXISTS free_ai_usage_day ON free_ai_usage(day);
+CREATE TABLE IF NOT EXISTS free_ai_successes (
+  day INTEGER NOT NULL, device_id TEXT NOT NULL, plans INTEGER NOT NULL,
+  PRIMARY KEY (day,device_id)
+) STRICT;
+CREATE INDEX IF NOT EXISTS free_ai_successes_day ON free_ai_successes(day);

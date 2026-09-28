@@ -57,6 +57,33 @@ test('capture is only a retained draft until Send; exact URL survives encrypted 
   } finally {await receiver.close()}
 })
 
+test('selected-text Continue opens the highlighted passage after encrypted delivery',async({page,browser,relay})=>{
+  const receiver=await browser.newContext({viewport:page.viewportSize()!})
+  try {
+    const b=await receiver.newPage()
+    await pair(page,b,relay.origin)
+    const selected='The state cookie is missing on Safari.'
+    const deepLink='https://example.com/article?x=a%2Fb&repeat=1&repeat=2#part%2fOne:~:text='+encodeURIComponent(selected)
+    await page.goto(relay.origin+'/'+fragment({url:deepLink,title:'Selected passage',excerpt:selected}))
+    await expect(primary(page)).toHaveValue(deepLink)
+    await expect(page.getByLabel('Relevant detail')).toHaveValue(selected)
+    expect(queued(relay.databasePath)).toBe(0)
+    await send(page).click()
+    await expect(page.locator('.notice')).toContainText('Queued')
+    await navigate(b,'Inbox')
+    await b.getByRole('link',{name:'Resume Selected passage'}).click()
+    const continueLink=b.getByRole('link',{name:/^Continue to/})
+    await expect(continueLink).toHaveAttribute('href',deepLink)
+    await receiver.route('https://example.com/**',route=>route.fulfill({
+      contentType:'text/html; charset=utf-8',
+      body:'<title>Article</title><h1 id="part/One">Original page anchor</h1><div style="height:1400px"></div><p>'+selected+'</p><div style="height:1400px"></div>',
+    }))
+    const [popup]=await Promise.all([b.waitForEvent('popup'),continueLink.click()])
+    await popup.waitForLoadState()
+    await expect.poll(()=>popup.evaluate(()=>scrollY)).toBeGreaterThan(500)
+  } finally {await receiver.close()}
+})
+
 test('a new capture cannot silently replace existing work, and invalid captures leave a usable editor',async({page,relay})=>{
   await page.goto(relay.origin)
   await primary(page).fill('https://example.com/current')

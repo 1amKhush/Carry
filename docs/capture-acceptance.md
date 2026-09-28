@@ -4,7 +4,7 @@ The Chrome/Edge extension and manual entry are enabled in normal builds. Android
 
 ## Laptop
 
-Follow [the extension instructions](../apps/extension/README.md). Deploy the matching web app, load the correct unpacked build in Chrome or Edge, pin Carry, and click its icon on a page. Check the title and exact URL, including query/fragment; no card should appear remotely until you press Send. Confirm an internal settings page opens a usable error state.
+Follow [the extension instructions](../apps/extension/README.md). Deploy the matching web app, load the correct unpacked build in Chrome or Edge, pin Carry, and click its icon on a page. Check the title and exact URL, including query/fragment; no card should appear remotely until you press Send. Confirm an internal settings page opens a usable error state. On a public article, select a distinctive passage, right-click **Carry selected text**, and confirm New card shows the excerpt and a `#:~:text=` passage link. Send it, then press Continue on the recipient and check that Chrome or Edge scrolls to and highlights the passage. Repeat with a URL containing a query and ordinary `#anchor` fragment. Check a repeated phrase separately: Chromium may choose its first matching occurrence.
 
 ## Android preview build
 

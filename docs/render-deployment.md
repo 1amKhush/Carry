@@ -6,7 +6,7 @@ Carry runs as one Node web service. Fastify serves `apps/web/dist` and `/api` at
 
 Use a **libSQL** database for `@libsql/client`. When creating one with the Turso CLI, omit `--tursodb`. Put `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` only in the API environment. Never prefix them with `VITE_` or add them to frontend files.
 
-The shared schema is [schema.sql](../apps/api/src/store/schema.sql). It includes the device/pairing/session tables, encrypted envelopes, receipt timestamps, expiry/inbox indexes, and primary keys on envelope/dedupe IDs. It also holds daily free-AI request counts by device, without card text or generated plans. API startup applies the idempotent schema before listening. It does not drop tables or import an existing local SQLite database.
+The shared schema is [schema.sql](../apps/api/src/store/schema.sql). It includes the device/pairing/session tables, encrypted envelopes, receipt timestamps, expiry/inbox indexes, and primary keys on envelope/dedupe IDs. It also holds daily free-AI attempt and successful-plan counts by device, without card text or generated plans. API startup applies the idempotent schema before listening. It does not drop tables or import an existing local SQLite database.
 
 To apply it explicitly from the repository root:
 
