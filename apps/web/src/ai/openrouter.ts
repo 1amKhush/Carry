@@ -21,7 +21,7 @@ export async function beginOpenRouterOAuth(): Promise<void> {
   const verifier = base64url(crypto.getRandomValues(new Uint8Array(32)))
   const challenge = base64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))))
   const state = base64url(crypto.getRandomValues(new Uint8Array(24)))
-  const returnTo = /^#resume\/[0-9a-f-]{36}$/.test(location.hash) ? location.hash : '#inbox'
+  const returnTo = location.hash==='#settings'||/^#resume\/[0-9a-f-]{36}$/.test(location.hash) ? location.hash : '#inbox'
   sessionStorage.setItem(PENDING_KEY, JSON.stringify({ verifier, state, returnTo, createdAt: Date.now() }))
   const callback = new URL(CALLBACK_PATH, location.origin)
   callback.searchParams.set('state', state)
@@ -47,7 +47,7 @@ export async function finishOpenRouterOAuth(): Promise<void> {
   sessionStorage.removeItem(PENDING_KEY)
   let pending: { verifier: string; state: string; returnTo: string; createdAt: number } | undefined
   try { pending = raw ? JSON.parse(raw) : undefined } catch { /* Invalid pending state is rejected below. */ }
-  const returnTo = pending && /^#resume\/[0-9a-f-]{36}$/.test(pending.returnTo) ? pending.returnTo : '#inbox'
+  const returnTo = pending && (pending.returnTo==='#settings'||/^#resume\/[0-9a-f-]{36}$/.test(pending.returnTo)) ? pending.returnTo : '#inbox'
   history.replaceState(null, '', '/' + returnTo)
   let notice = 'OpenRouter connection was not completed. Try Connect OpenRouter again.'
   if (pending && typeof pending.verifier === 'string' && pending.state === callback.searchParams.get('state') &&

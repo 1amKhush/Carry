@@ -279,7 +279,7 @@ select { width:100%; min-height:44px; margin-top:9px; padding:10px 12px; font:in
 .resume-card .saved-note { margin-top: 22px; }
 @media (max-width: 640px) { .resume-card { padding: 20px; } .resume-action { padding: 18px; } .resume-destination .button { width: 100%; } }
 
-/* Optional browser-only resume assistant. */
+/* Optional resume assistant and one-time AI settings. */
 .ai-assistant { max-width: 780px; margin-top: 18px; padding: 23px 28px; border: 1px solid var(--line); border-radius: 8px; background: #f7f8f1; }
 .ai-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .ai-heading h2 { font-family: 'Instrument Serif', serif; font-size: 28px; font-weight: 400; margin-top: 5px; }
@@ -304,3 +304,8 @@ select { width:100%; min-height:44px; margin-top:9px; padding:10px 12px; font:in
 .ai-plan ol, .ai-plan ul { padding-left: 22px; }
 .ai-plan a { color: #426839; text-decoration: underline; }
 @media (max-width: 640px) { .ai-assistant { padding: 20px; } .ai-heading, .ai-connected { align-items: stretch; flex-direction: column; } .ai-manual-row { align-items: stretch; flex-direction: column; } .ai-manual-row .refresh-inbox { width: 100%; } }
+
+.ai-settings-card > h2 { font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400; }
+.ai-settings-card > .button { margin-top: 17px; }
+.ai-settings-card .ai-manual { margin-top: 22px; }
+.ai-model a { color: #426839; text-decoration: underline; }

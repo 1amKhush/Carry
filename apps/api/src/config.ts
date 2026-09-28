@@ -13,6 +13,7 @@ export function runtimeConfig(env:NodeJS.ProcessEnv=process.env) {
   return {
     port,host:env.PORT?'0.0.0.0':env.CARRY_API_HOST??'127.0.0.1',
     origin,databasePath:env.CARRY_DB_PATH??'./data/carry.sqlite',
+    freeAiKey:env.CARRY_OPENROUTER_FREE_KEY?.trim()||undefined,
     serveWeb:env.CARRY_SERVE_WEB==='1'||env.NODE_ENV==='production'||render,
     database:url?new TursoDatabase({url,authToken:token}):undefined,
   }

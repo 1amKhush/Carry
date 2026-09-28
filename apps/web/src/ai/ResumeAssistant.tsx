@@ -1,76 +1,58 @@
 import { useEffect, useState } from 'react'
 import type { Card } from '@carry/protocol'
-import { beginOpenRouterOAuth, clearOpenRouterNotice, disconnectOpenRouter, getOpenRouterKey, readOpenRouterNotice, saveOpenRouterKey } from './openrouter'
-import { buildResumeInput, FREE_MODEL, requestResumePlan, SYSTEM_PROMPT, type ResumePlan } from './resumePlan'
+import { getOpenRouterKey } from './openrouter'
+import { buildResumeInput, requestResumePlan, SYSTEM_PROMPT, type ResumePlan } from './resumePlan'
+import { freeAssistanceAvailable, requestFreeResumePlan } from './freePlan'
 
 export function ResumeAssistant({ card }: { card: Card }) {
-  const [open, setOpen] = useState(false)
-  const [connected, setConnected] = useState<boolean | null>(null)
-  const [manualKey, setManualKey] = useState('')
-  const [modelChoice, setModelChoice] = useState<'free' | 'other'>('free')
-  const [otherModel, setOtherModel] = useState('')
-  const [message, setMessage] = useState(readOpenRouterNotice)
-  const [busy, setBusy] = useState(false)
-  const [plan, setPlan] = useState<ResumePlan | null>(null)
-  const input = buildResumeInput(card)
-  const model = modelChoice === 'free' ? FREE_MODEL : otherModel.trim()
-
-  useEffect(() => {
-    let mounted = true
-    clearOpenRouterNotice()
-    void getOpenRouterKey().then(key => { if (mounted) setConnected(Boolean(key)) })
-      .catch(() => { if (mounted) { setConnected(false); setMessage('Browser storage is unavailable. OpenRouter cannot connect on this device.') } })
-    return () => { mounted = false }
-  }, [])
-
-  async function saveKey() {
-    try {
-      await saveOpenRouterKey(manualKey)
-      setManualKey('')
-      setConnected(true)
-      setMessage('OpenRouter is connected on this device.')
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not save the key on this device.') }
-  }
-  async function disconnect() {
-    try {
-      await disconnectOpenRouter()
-      setConnected(false)
-      setManualKey('')
-      setPlan(null)
-      setMessage('OpenRouter key removed from this device.')
-    } catch { setMessage('Could not remove the key from browser storage.') }
-  }
+  const [open,setOpen]=useState(false)
+  const [mode,setMode]=useState<'free'|'own'>('free')
+  const [freeEnabled,setFreeEnabled]=useState<boolean|null>(null)
+  const [connected,setConnected]=useState<boolean|null>(null)
+  const [modelChoice,setModelChoice]=useState<'free'|'other'>('free')
+  const [otherModel,setOtherModel]=useState('')
+  const [message,setMessage]=useState('')
+  const [busy,setBusy]=useState(false)
+  const [plan,setPlan]=useState<ResumePlan|null>(null)
+  const [usedModel,setUsedModel]=useState('')
+  const input=buildResumeInput(card)
+  const model=modelChoice==='free'?'openrouter/free':otherModel.trim()
+  useEffect(()=>{
+    let mounted=true
+    void getOpenRouterKey().then(key=>{if(mounted)setConnected(Boolean(key))}).catch(()=>{if(mounted)setConnected(false)})
+    void freeAssistanceAvailable().then(enabled=>{if(mounted)setFreeEnabled(enabled)}).catch(()=>{if(mounted)setFreeEnabled(false)})
+    return ()=>{mounted=false}
+  },[])
   async function ask() {
-    setBusy(true)
-    setPlan(null)
-    setMessage('')
+    setBusy(true);setPlan(null);setMessage('');setUsedModel('')
     try {
-      const key = await getOpenRouterKey()
-      if (!key) { setConnected(false); throw new Error('Connect OpenRouter on this device first.') }
-      setPlan(await requestResumePlan(input, key, model))
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not get a plan. Your card is still ready to Continue.') }
-    finally { setBusy(false) }
+      if(mode==='free') {
+        const result=await requestFreeResumePlan(card.id,input)
+        setPlan(result.plan);setUsedModel(result.model)
+      } else {
+        const key=await getOpenRouterKey()
+        if(!key){setConnected(false);throw new Error('Connect your OpenRouter account in AI settings first.')}
+        setPlan(await requestResumePlan(input,key,model));setUsedModel(model)
+      }
+    } catch(error){setMessage(error instanceof Error?error.message:'Could not get a plan. Your card is still ready to Continue.')}
+    finally{setBusy(false)}
   }
-
+  const canAsk=!busy&&(mode==='free'?freeEnabled===true:connected===true&&(modelChoice==='free'||Boolean(otherModel.trim())))
   return <section className="ai-assistant" aria-labelledby="ai-heading">
     <div className="ai-heading"><div><span className="card-kicker">OPTIONAL ASSISTANCE</span><h2 id="ai-heading">A little help picking up?</h2></div>
-      <button type="button" className="button ai-open" onClick={() => setOpen(value => !value)} aria-expanded={open}>{open ? 'Hide AI help' : 'Help me resume'}</button></div>
-    <p>Continue works without AI. Nothing from this card is sent to OpenRouter until you review and approve it.</p>
-    {open && <div className="ai-content">
-      <div className="ai-connection">
-        <h3>Connect OpenRouter <span className="optional-label">on this device only</span></h3>
-        <p>Use your own account. The key stays in this browser’s storage and is sent only to OpenRouter. Clearing this site’s data removes it.</p>
-        {connected === null ? <p role="status">Checking browser connection…</p> : connected === true ? <div className="ai-connected"><span role="status">Connected on this device</span><button type="button" className="refresh-inbox" onClick={() => void disconnect()} disabled={busy}>Disconnect and remove key</button></div>
-          : <><button type="button" className="refresh-inbox" onClick={() => { void beginOpenRouterOAuth().catch(() => setMessage('Could not start OpenRouter sign-in. Try manual key entry.')) }}>Connect OpenRouter</button>
-            <div className="ai-manual"><label htmlFor="openrouter-key">Or enter your own OpenRouter API key</label><div className="ai-manual-row"><input id="openrouter-key" type="password" autoComplete="off" spellCheck={false} value={manualKey} onChange={event => setManualKey(event.target.value)} placeholder="sk-or-…"/><button type="button" className="refresh-inbox" onClick={() => void saveKey()} disabled={!manualKey.trim()}>Save key</button></div></div></>}
+      <button type="button" className="button ai-open" onClick={()=>setOpen(value=>!value)} aria-expanded={open}>{open?'Hide AI help':'Help me resume'}</button></div>
+    <p>Continue works without AI. Nothing from this card is sent for AI until you review and approve it.</p>
+    {open&&<div className="ai-content">
+      <div className="ai-model"><label htmlFor="ai-assistance-mode">Use</label><select id="ai-assistance-mode" value={mode} onChange={event=>{setMode(event.target.value as 'free'|'own');setPlan(null);setMessage('')}}><option value="free">Free assistance from Carry</option><option value="own">My OpenRouter key</option></select>
+        {mode==='free'?<p>{freeEnabled===null?'Checking free assistance…':freeEnabled?'No account needed. Up to five requests per device each UTC day; free models are selected automatically and may be busy.':'Free assistance is not configured on this deployment.'}</p>
+          :<><p>{connected===true?'Your saved key is ready on this device.':connected===null?'Checking your saved key…':'No personal key saved on this device.'} <a href="#settings">Manage your key in AI settings</a>.</p>
+            <label htmlFor="ai-model-choice">Model for my account</label><select id="ai-model-choice" value={modelChoice} onChange={event=>{setModelChoice(event.target.value as 'free'|'other');setPlan(null)}}><option value="free">Free router (openrouter/free)</option><option value="other">Another model on my account</option></select>
+            {modelChoice==='other'&&<><label htmlFor="ai-model-id">OpenRouter model ID</label><input id="ai-model-id" value={otherModel} onChange={event=>{setOtherModel(event.target.value);setPlan(null)}} placeholder="provider/model"/><p>Other models may charge your account. Carry requests only the model you enter.</p></>}</>}
       </div>
-      <div className="ai-model"><label htmlFor="ai-model-choice">Model</label><select id="ai-model-choice" value={modelChoice} onChange={event => { setModelChoice(event.target.value as 'free' | 'other'); setPlan(null) }}><option value="free">Free router (openrouter/free)</option><option value="other">Another model on my account</option></select>
-        {modelChoice === 'other' && <><label htmlFor="ai-model-id">OpenRouter model ID</label><input id="ai-model-id" value={otherModel} onChange={event => { setOtherModel(event.target.value); setPlan(null) }} placeholder="provider/model"/><p>Other models may charge your account. Carry will request only the model you enter.</p></>}
-      </div>
-      <div className="ai-disclosure"><h3>Review what AI will receive</h3><p>Only these card fields are sent from this browser directly to OpenRouter and its selected model provider. Carry also sends fixed instructions to write a short plan. AI does not open or read linked pages.</p><pre aria-label="Exact card data for OpenRouter">{JSON.stringify(input, null, 2)}</pre><details><summary>View fixed AI instructions</summary><pre>{SYSTEM_PROMPT}</pre></details></div>
-      <button type="button" className="button button-primary" disabled={connected !== true || busy || (modelChoice === 'other' && !otherModel.trim())} onClick={() => void ask()}>{busy ? 'Asking OpenRouter…' : 'Approve and ask AI'}</button>
-      {message && <p className={plan ? 'notice' : 'ai-message'} role="status">{message}</p>}
-      {plan && <div className="ai-plan" role="region" aria-label="AI resume plan"><h3>Where you left off</h3><p>{plan.whereYouLeftOff}</p><h3>Do next</h3><ol>{plan.doNext.map((step, index) => <li key={index}>{step}</li>)}</ol><h3>Useful links</h3>{plan.usefulLinks.length ? <ul>{plan.usefulLinks.map(link => <li key={link.url}><a href={link.url} target="_blank" rel="noopener noreferrer">{link.label}</a></li>)}</ul> : <p>No additional links suggested.</p>}{plan.insufficientContext && <p className="ai-message">This card lacks enough context for a confident plan.</p>}</div>}
+      <div className="ai-disclosure"><h3>Review what AI will receive</h3><p>{mode==='free'?'These card fields pass through Carry’s API to OpenRouter and its selected free model. Carry also receives this card’s routing ID to verify access; it does not save the plaintext.':'These card fields go directly from this browser to OpenRouter and your selected model provider.'} Fixed instructions are also sent. AI does not open or read linked pages.</p><pre aria-label="Exact card data for OpenRouter">{JSON.stringify(input,null,2)}</pre><details><summary>View fixed AI instructions</summary><pre>{SYSTEM_PROMPT}</pre></details></div>
+      <button type="button" className="button button-primary" disabled={!canAsk} onClick={()=>void ask()}>{busy?'Asking OpenRouter…':'Approve and ask AI'}</button>
+      {message&&<p className="ai-message" role="status">{message}</p>}
+      {plan&&<div className="ai-plan" role="region" aria-label="AI resume plan"><p className="field-hint">Generated with {usedModel}</p><h3>Where you left off</h3><p>{plan.whereYouLeftOff}</p><h3>Do next</h3><ol>{plan.doNext.map((step,index)=><li key={index}>{step}</li>)}</ol><h3>Useful links</h3>{plan.usefulLinks.length?<ul>{plan.usefulLinks.map(link=><li key={link.url}><a href={link.url} target="_blank" rel="noopener noreferrer">{link.label}</a></li>)}</ul>:<p>No additional links suggested.</p>}{plan.insufficientContext&&<p className="ai-message">This card lacks enough context for a confident plan.</p>}</div>}
     </div>}
   </section>
 }

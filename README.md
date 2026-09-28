@@ -29,9 +29,11 @@ The web app is installable. Android system sharing is an opt-in preview until [t
 
 ## Optional AI resume help
 
-On a received card, choose **Help me resume**. Connect your own OpenRouter account with OAuth PKCE or enter a personal key on that device. Review the exact card fields in the disclosure preview, then press **Approve and ask AI**. The default is `openrouter/free`; another model is used only if you explicitly select and enter it. A generated plan is local to the current screen and is not saved to the relay. **Disconnect and remove key** deletes the browser-stored key. The card and Continue link work even when AI is disconnected or unavailable.
+On a received card, choose **Help me resume**, select **Free assistance from Carry** or **My OpenRouter key**, review the disclosure, then press **Approve and ask AI**. Continue works without AI. The free route requires no user account; a small daily allowance and free-model rotation run on the API. It is disabled until the API has `CARRY_OPENROUTER_FREE_KEY` set as a server-only secret. Free model availability and account limits can still prevent a response.
 
-Card plaintext goes directly from the receiving browser to OpenRouter and its selected model provider only after approval. The browser also sends fixed task-planning instructions; linked pages are not fetched or read. No OpenRouter key belongs in Render, Turso, Vite environment variables, or Git. See [0007 — optional AI](docs/decisions/0007-optional-ai.md) for the trust boundary and failure behavior.
+Use **AI settings** once to connect your own OpenRouter account with OAuth PKCE or save a personal key on this browser. That key works on every received card in this browser profile until you disconnect or clear site data. With your key, the request goes directly from the browser to OpenRouter; a non-free model is used only if you explicitly enter it.
+
+The free route sends the approved plaintext fields through Carry's API to OpenRouter and the chosen free model. The API validates and forwards them but stores only request counts, never plaintext cards, plans, or OpenRouter keys. This is a separate disclosure from encrypted delivery. The personal-key route does not send those fields through Carry. See [0007 — optional AI](docs/decisions/0007-optional-ai.md) for the precise boundary.
 
 ## Verify
 
@@ -81,12 +83,13 @@ Configuration:
 - PORT: platform-provided port; also binds to 0.0.0.0. CARRY_API_PORT defaults to 3001 when PORT is absent.
 - CARRY_API_HOST: default 127.0.0.1; the container binds 0.0.0.0 on its private network.
 - CARRY_SERVE_WEB=1: serve the built web app with a restrictive CSP.
+- CARRY_OPENROUTER_FREE_KEY: optional server-only key for free AI; absent disables that route.
 
 A phone’s 127.0.0.1 points to the phone. Use the same reachable HTTPS hostname on both devices.
 
 ## Security and delivery contract
 
-The relay receives versioned encrypted envelopes, never a plaintext Card. Shared Zod schemas validate cards in the browser and envelope shapes at the API. P-256 ECDSA authenticates devices and signs pairing approvals/envelopes. Fresh ephemeral P-256 ECDH, HKDF-SHA-256, and AES-256-GCM encrypt each card for its recipient. Private keys are non-extractable CryptoKeys in IndexedDB. Session tokens remain in memory; the relay stores their hashes. Requests require a session and an active pair.
+The handoff relay receives versioned encrypted envelopes, never a plaintext Card. Optional free AI receives only explicitly approved plaintext context through a separate authenticated endpoint; see the AI section above. Shared Zod schemas validate cards in the browser and envelope shapes at the API. P-256 ECDSA authenticates devices and signs pairing approvals/envelopes. Fresh ephemeral P-256 ECDH, HKDF-SHA-256, and AES-256-GCM encrypt each card for its recipient. Private keys are non-extractable CryptoKeys in IndexedDB. Session tokens remain in memory; the relay stores their hashes. Requests require a session and an active pair.
 
 **Queued** means the database committed. **Received** means the recipient decrypted, validated, and saved the envelope locally. **Continued** means Continue was pressed, not that the destination finished loading. Receipts never delete the envelope. Cards expire after seven days; cleanup runs on startup and at most once a minute while the service is awake; reads always filter expiry. Retries reuse a locally saved envelope and ID. Unpair revokes the pair and removes its queued/local envelopes.
 

@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/card.ts",
-    "./secure": "./src/secure.ts"
+    "./secure": "./src/secure.ts",
+    "./resume-ai": "./src/resume-ai.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

@@ -6,7 +6,7 @@ import { RelayError, RelayStore } from './store/sqlite.ts'
 import type { RelayDatabase } from './store/database.ts'
 import { registerSecure } from './routes/secure.ts'
 
-export function createApp(options:{databasePath?:string;database?:RelayDatabase;origin?:string;now?:()=>number;serveWeb?:boolean;webRoot?:string;rateLimit?:boolean;automaticCleanup?:boolean}={}) {
+export function createApp(options:{databasePath?:string;database?:RelayDatabase;origin?:string;now?:()=>number;serveWeb?:boolean;webRoot?:string;rateLimit?:boolean;automaticCleanup?:boolean;freeAiKey?:string;freeAiFetch?:typeof fetch}={}) {
   const origin=options.origin??'http://127.0.0.1:5173'
   const url=new URL(origin)
   if(url.origin!==origin||(url.protocol!=='https:'&&!(url.protocol==='http:'&&['127.0.0.1','localhost','[::1]'].includes(url.hostname))))throw new Error('CARRY_ORIGIN must be an HTTPS origin (HTTP is allowed only on loopback).')
@@ -45,7 +45,7 @@ export function createApp(options:{databasePath?:string;database?:RelayDatabase;
     const status=error instanceof RelayError?error.statusCode:(error instanceof Error&&'statusCode' in error&&typeof error.statusCode==='number'?error.statusCode:500)
     reply.code(status).send({error:error instanceof RelayError?error.message:status===400?'Invalid request.':status===429?'Too many requests. Try again shortly.':'Request failed.'})
   })
-  registerSecure(app,store,origin,now)
+  registerSecure(app,store,origin,now,options.freeAiKey,options.freeAiFetch)
   if(options.serveWeb)app.register(staticFiles,{root:options.webRoot??fileURLToPath(new URL('../../web/dist',import.meta.url)),index:'index.html'})
   app.setNotFoundHandler((req,reply)=>{
     const path=req.url.split('?')[0]

@@ -6,7 +6,7 @@ Carry runs as one Node web service. Fastify serves `apps/web/dist` and `/api` at
 
 Use a **libSQL** database for `@libsql/client`. When creating one with the Turso CLI, omit `--tursodb`. Put `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` only in the API environment. Never prefix them with `VITE_` or add them to frontend files.
 
-The shared schema is [schema.sql](../apps/api/src/store/schema.sql). It includes the device/pairing/session tables, encrypted envelopes, receipt timestamps, expiry/inbox indexes, and primary keys on envelope/dedupe IDs. API startup applies the idempotent schema before listening. It does not drop tables or import an existing local SQLite database.
+The shared schema is [schema.sql](../apps/api/src/store/schema.sql). It includes the device/pairing/session tables, encrypted envelopes, receipt timestamps, expiry/inbox indexes, and primary keys on envelope/dedupe IDs. It also holds daily free-AI request counts by device, without card text or generated plans. API startup applies the idempotent schema before listening. It does not drop tables or import an existing local SQLite database.
 
 To apply it explicitly from the repository root:
 
@@ -41,12 +41,13 @@ Push this repository, then choose **New → Web Service** on Render and connect 
 | `CARRY_SERVE_WEB` | `1` |
 | `TURSO_DATABASE_URL` | Your libSQL database URL |
 | `TURSO_AUTH_TOKEN` | Your database token, stored as a service secret |
+| `CARRY_OPENROUTER_FREE_KEY` | A rotated Carry-owned OpenRouter key, stored as a service secret; omit to disable free AI |
 
-[render.yaml](../render.yaml) supplies the same settings for a Blueprint deployment and prompts for the two database values. Manual Web Service creation requires entering the settings above. No pre-deploy command or persistent disk is required.
+[render.yaml](../render.yaml) supplies the same settings for a Blueprint deployment and prompts for the database values and optional free-AI key. Manual Web Service creation requires entering the settings above. No pre-deploy command or persistent disk is required.
 
 Render provides `PORT`, `RENDER`, and `RENDER_EXTERNAL_URL`. Carry listens on `0.0.0.0:$PORT`, uses `RENDER_EXTERNAL_URL` as its authentication/pairing origin, and refuses to start on Render without Turso credentials. For a custom domain, set `CARRY_ORIGIN` to that exact HTTPS origin without a trailing slash. Open that same origin on both devices. Changing origins creates a separate browser identity and requires pairing again.
 
-The build explicitly installs development dependencies so TypeScript and Vite remain available with `NODE_ENV=production`. Database credentials are read only by the API at runtime. `/api/*` errors remain JSON; browser navigation routes receive `index.html`.
+The build explicitly installs development dependencies so TypeScript and Vite remain available with `NODE_ENV=production`. Database credentials and the optional free-AI key are read only by the API at runtime. The key must never be prefixed with `VITE_` or placed in the web build. `/api/*` errors remain JSON; browser navigation routes receive `index.html`.
 
 ## Verify the deployment
 

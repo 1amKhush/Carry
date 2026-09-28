@@ -36,3 +36,8 @@ CREATE TABLE IF NOT EXISTS dedupe (
   expires_at INTEGER NOT NULL
 ) STRICT;
 CREATE INDEX IF NOT EXISTS dedupe_expiry ON dedupe(expires_at);
+CREATE TABLE IF NOT EXISTS free_ai_usage (
+  day INTEGER NOT NULL, device_id TEXT NOT NULL, requests INTEGER NOT NULL,
+  PRIMARY KEY (day,device_id)
+) STRICT;
+CREATE INDEX IF NOT EXISTS free_ai_usage_day ON free_ai_usage(day);

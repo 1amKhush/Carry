@@ -4,8 +4,9 @@ import { approvalMessage, hash, randomToken, validatePublicDevice, verify, verif
 import { bundleSchema, deviceIdSchema, envelopeSchema, invitationMessage, INVITATION_MS, jsonSchema, receiptSchema, uuidSchema, z, type Pair, type PublicDevice } from '@carry/protocol/secure'
 import { RelayError, type RelayStore } from '../store/sqlite.ts'
 import type { SqlExecutor, SqlRow } from '../store/database.ts'
+import { registerFreeAssistance } from './free-assistance.ts'
 
-export function registerSecure(app:FastifyInstance,store:RelayStore,origin:string,now:()=>number) {
+export function registerSecure(app:FastifyInstance,store:RelayStore,origin:string,now:()=>number,freeAiKey?:string,freeAiFetch?:typeof fetch) {
   const db=store.db
   const fail=(status:number,message:string):never=>{throw new RelayError(status,message)}
   const device=async(id:string,connection:SqlExecutor=db):Promise<PublicDevice>=>{
@@ -18,6 +19,7 @@ export function registerSecure(app:FastifyInstance,store:RelayStore,origin:strin
     const row=await db.get('SELECT device_id FROM sessions WHERE token_hash=? AND expires_at>?',await hash(token),now())
     return row?String(row.device_id):fail(401,'Session expired.')
   }
+  registerFreeAssistance(app,store,authenticate,now,freeAiKey,freeAiFetch)
   const activePair=async(id:string,member:string):Promise<Pair>=>{
     const row=await db.get('SELECT proof FROM pairs WHERE id=? AND revoked=0 AND (inviter=? OR joiner=?)',id,member,member)
     return row?JSON.parse(String(row.proof)) as Pair:fail(403,'An active pairing is required.')

@@ -6,12 +6,12 @@ export class ApiError extends Error {
   status:number
   constructor(status:number,message:string) {super(message);this.status=status}
 }
-async function request(path:string,method:string,body:unknown,token?:string) {
+async function request(path:string,method:string,body:unknown,token?:string,timeoutMs=10000) {
   let response:Response
   try {
     response=await fetch('/api/v1'+path,{
       method,headers:{...(body===undefined?{}:{'Content-Type':'application/json'}),...(token?{Authorization:'Bearer '+token}:{})},
-      ...(body===undefined?{}:{body:JSON.stringify(body)}),cache:'no-store',signal:AbortSignal.timeout(10000),
+      ...(body===undefined?{}:{body:JSON.stringify(body)}),cache:'no-store',signal:AbortSignal.timeout(timeoutMs),
     })
   } catch {throw new ApiError(0,'The relay could not be reached. Your saved send can be retried.')}
   if (!response.ok) {
@@ -32,11 +32,11 @@ async function token() {
   session ??= authenticate().catch(error=>{session=undefined;throw error})
   return session
 }
-export async function api(path:string,method='GET',body?:unknown):Promise<unknown> {
-  try {return await request(path,method,body,await token())}
+export async function api(path:string,method='GET',body?:unknown,timeoutMs=10000):Promise<unknown> {
+  try {return await request(path,method,body,await token(),timeoutMs)}
   catch(error) {
     if (!(error instanceof ApiError) || error.status!==401) throw error
     session=undefined
-    return request(path,method,body,await token())
+    return request(path,method,body,await token(),timeoutMs)
   }
 }

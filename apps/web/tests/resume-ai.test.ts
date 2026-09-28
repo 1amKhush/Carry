@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { Card } from '@carry/protocol'
 import { buildResumeInput, FREE_MODEL, requestResumePlan, resumeRequestBody, validateResumePlan } from '../src/ai/resumePlan.ts'
+import { resumeInputSchema } from '@carry/protocol/resume-ai'
 
 const card: Card = {
   id: '11111111-1111-4111-8111-111111111111', title: 'OAuth callback',
@@ -24,6 +25,7 @@ test('AI input contains only approved context and exact original links', () => {
   assert.ok(!json.includes(card.id))
   assert.ok(!json.includes(card.createdAt))
   assert.deepEqual(validateResumePlan(plan, input), plan)
+  for(const url of ['javascript:alert(1)',' https://example.com'])assert.equal(resumeInputSchema.safeParse({...input,links:[{url}]}).success,false)
 })
 test('legacy cards disclose empty task fields and require an honest insufficient-context flag', () => {
   const input = buildResumeInput({ ...card, goal: undefined, nextAction: undefined, excerpt: undefined, note: '' })
