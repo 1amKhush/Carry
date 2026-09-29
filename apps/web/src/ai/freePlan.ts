@@ -7,7 +7,16 @@ export async function requestFreeResumePlan(cardId:string,input:ResumeInput):Pro
   if(!result||typeof result!=='object'||!('content' in result)||typeof result.content!=='string'||!('model' in result)||typeof result.model!=='string')throw new Error('Free AI returned an invalid response. Your card is still ready to Continue.')
   return {plan:parseResumeContent(result.content,input),model:result.model}
 }
-export async function freeAssistanceAvailable():Promise<boolean> {
+export interface FreeAssistanceStatus {
+  enabled:boolean
+  remainingPlans:number
+  remainingAttempts:number
+  sharedCapacityAvailable:boolean
+}
+export async function getFreeAssistanceStatus():Promise<FreeAssistanceStatus> {
   const result=await api('/ai/free/status')
-  return Boolean(result&&typeof result==='object'&&'enabled' in result&&result.enabled===true)
+  if(!result||typeof result!=='object')throw new Error('Free assistance status is unavailable.')
+  const status=result as Partial<FreeAssistanceStatus>
+  if(typeof status.enabled!=='boolean'||!Number.isInteger(status.remainingPlans)||!Number.isInteger(status.remainingAttempts)||typeof status.sharedCapacityAvailable!=='boolean')throw new Error('Free assistance status is unavailable.')
+  return status as FreeAssistanceStatus
 }

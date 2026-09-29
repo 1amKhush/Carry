@@ -77,8 +77,19 @@ export function registerFreeAssistance(app:FastifyInstance,store:RelayStore,auth
     })
   }
   app.get('/api/v1/ai/free/status',async request=>{
-    await authenticate(request)
-    return {enabled:Boolean(key),perDeviceDailyLimit:PER_DEVICE_DAILY}
+    const member=await authenticate(request)
+    const day=Math.floor(now()/86400000)
+    const [successes,attempts,shared]=await Promise.all([
+      store.db.get('SELECT plans FROM free_ai_successes WHERE day=? AND device_id=?',day,member),
+      store.db.get('SELECT requests FROM free_ai_usage WHERE day=? AND device_id=?',day,member),
+      store.db.get('SELECT requests FROM free_ai_usage WHERE day=? AND device_id=?',day,'*'),
+    ])
+    return {
+      enabled:Boolean(key),perDeviceDailyLimit:PER_DEVICE_DAILY,
+      remainingPlans:Math.max(0,PER_DEVICE_DAILY-Number(successes?.plans??0)),
+      remainingAttempts:Math.max(0,PER_DEVICE_ATTEMPTS-Number(attempts?.requests??0)),
+      sharedCapacityAvailable:Number(shared?.requests??0)<GLOBAL_DAILY_ATTEMPTS,
+    }
   })
   app.post<{Body:{cardId:string;input:ResumeInput}}>('/api/v1/ai/free',{
     schema:{body:jsonSchema(z.strictObject({cardId:uuidSchema,input:resumeInputSchema}))},

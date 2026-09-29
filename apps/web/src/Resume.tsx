@@ -17,6 +17,7 @@ export function Resume({ card, onReceiptError }: { card:Card; onReceiptError:()=
       <span className="card-kicker">PICK UP HERE</span>
       <h3>{title}</h3>
       <p>{card.primaryUrl}</p>
+      {card.primaryUrl.split('#')[1]?.includes(':~:text=')&&<p className="passage-cue">Selected passage link · A supporting browser will try to highlight the passage.</p>}
       <a className="button button-primary" href={card.primaryUrl} target="_blank" rel="noopener noreferrer" onClick={()=>{void markContinued(card.id).catch(onReceiptError)}} aria-label={`Continue to ${title} (opens in a new tab)`}>Continue <Icon name="arrow" /></a>
     </div>
     {card.relatedUrls.length>0&&<div className="saved-related"><span className="card-kicker">RELATED LINKS · {card.relatedUrls.length}</span><ul>{card.relatedUrls.map((url,index)=><li key={index}><a href={url} target="_blank" rel="noopener noreferrer" aria-label={`Related link: ${url} (opens in a new tab)`}><Icon name="link"/><span>{url}</span><Icon name="external"/></a></li>)}</ul></div>}

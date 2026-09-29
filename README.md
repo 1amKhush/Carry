@@ -1,41 +1,74 @@
 # Carry
 
-A small card that carries a link and its context between paired browser profiles.
+Carry moves a page and the context for returning to it between paired browsers. Capture or paste a link, add a next action if useful, and send an encrypted card. Open it later on your other device and press **Continue**.
 
-Milestone 3A–3C is implemented: durable SQLite/Turso delivery, key-backed identity, QR pairing with approval on both devices, client-encrypted cards, expiry, retries, and receipts. Render Free + Turso deployment configuration is included and the Turso integration has been verified. **Milestone 3D is not complete until the public deployment and actual-phone acceptance run are recorded.**
+The web app and authenticated Fastify relay share one HTTPS origin on Render; the relay stores its durable queue in Turso. A Chrome/Edge extension can start drafts from the current tab or selected text. Android system sharing is still an opt-in preview; manual paste works everywhere.
 
-## Develop
+## Use Carry
 
-Use Node.js 24 LTS and pnpm 10.34.5.
+1. Open the **same Carry HTTPS address** on two devices or browser profiles. Each profile creates its own device identity.
+2. On the first device, open **Pair device → Create invitation**. Scan its QR code with the second device, or open the invitation link there. Compare **all four groups** of the verification code and press **Codes match — Approve** on **both** devices. The invitation expires after five minutes.
+3. On the sender, open **New card**. Paste a complete `https://` or `http://` URL, or [install the Chrome/Edge extension](apps/extension/README.md) and click **Carry this page**. For a passage, select text on the page, right-click, and choose **Carry selected text**. Review the title, link, excerpt, and optional goal, next action, related links, and note.
+4. Choose the trusted device and press **Send card**. **Queued** means the encrypted card was committed to the relay. Capturing or editing a draft alone never sends it.
+5. On the recipient, open **Inbox** and select **Resume**. The next action appears first. **Continue** opens the exact saved primary URL, including its query and fragment, in a new tab. A selected-passage link asks a supporting browser to highlight that passage; matching can vary by page.
+
+Inbox refreshes while open. The recipient can be offline when you send; the card remains available until it expires after seven days. **Received** means the recipient decrypted and saved it locally. **Continued** records a click on Continue. Neither receipt removes the card before expiry. **Unpair** revokes trust and removes that pair's queued cards.
+
+**Help me resume** is optional. It shows the exact card fields proposed for AI before **Approve and ask AI**. The free option uses Carry's configured OpenRouter account, subject to daily and provider limits. **AI settings** lets you connect your own OpenRouter account or save your own key once per browser profile. AI failure never blocks Continue.
+
+## Run locally
+
+Use **Node.js 24** and **pnpm 10**. From the repository root (the folder containing this README and `pnpm-workspace.yaml`):
 
 ```sh
+# Only if pnpm is not installed:
+npm install -g pnpm@10.34.5
 pnpm install
 pnpm dev
 ```
 
-Open **http://127.0.0.1:5173** in two different browser profiles. Both the Vite app and the API bind to loopback by default. Vite proxies /api to the API on port 3001. Use that exact origin, or configure CARRY_ORIGIN to match the browser address.
+Open **http://127.0.0.1:5173** in two separate browser profiles and follow the steps above. On one laptop, open the invitation link in the other profile instead of scanning its QR code. Vite proxies `/api` to Fastify on `127.0.0.1:3001`; local development uses `apps/api/data/carry.sqlite`. Stop and restart the API to check that a queued card survives. Browser keys belong to each profile and origin, so keep both the same between visits.
 
-Choose **Pair device**, create an invitation, open its link in the other profile (or scan the QR on a reachable HTTPS deployment), compare all four verification-code groups, and approve on both screens. In **New card**, select the trusted device and send. **Inbox** polls every three seconds; **Continue** opens the original HTTP(S) destination in a new tab. No UUID copying remains.
+For extension builds and loading, follow [the extension guide](apps/extension/README.md). The bundled extension opens `https://carry-hhc6.onrender.com` unless built with a different `WXT_CARRY_ORIGIN`. It is installed separately from the web service. For Android share-target testing, follow [the capture acceptance guide](docs/capture-acceptance.md); normal production builds keep manual paste available and do not enable the share target.
 
-The API stores data in apps/api/data/carry.sqlite during development. Stop and restart `pnpm dev` to verify durability. Keep the same profile and origin to retain browser keys. Milestone 2’s localStorage UUID is ignored; its plaintext development routes are removed.
+## How it works
 
-## Capture a page
+```mermaid
+flowchart LR
+    A[Chrome/Edge extension<br/>or manual paste] --> B[New card draft<br/>sender browser]
+    B -->|User presses Send| C[Encrypt and sign<br/>in sender browser]
+    C -->|Encrypted envelope| D[Fastify relay<br/>pairing and authentication]
+    D <--> E[(Turso libSQL<br/>durable queue)]
+    D -->|Authenticated inbox| F[Recipient browser<br/>decrypt and save locally]
+    F -->|User presses Continue| G[Exact original URL]
+    F -->|Received / Continued receipts| D
+```
 
-[Load the Carry extension in Chrome or Edge](apps/extension/README.md), then click **Carry this page** on an HTTP(S) tab. It opens the existing New card form with the exact URL and title. Review the draft, choose a paired device and press **Send**. Capturing never sends automatically. Drafts survive reload/navigation within the same tab; an incoming capture asks before replacing existing work.
+```mermaid
+flowchart LR
+    A[Received card<br/>decrypted in browser] -->|User opens Help me resume| B[Review exact fields]
+    B -->|Approve free help| C[Carry API<br/>transient plaintext forwarding]
+    C --> D[OpenRouter<br/>free model]
+    B -->|Approve with own key| E[OpenRouter<br/>direct from browser]
+```
 
-Select a short passage on a desktop page and use **Carry selected text** in the right-click menu to prefill a reviewed excerpt and a passage link. On supported pages, **Continue** scrolls to and highlights that selection; duplicate or changed text may prevent an exact match. Add an optional goal and next action in New card. On the recipient, open the card from Inbox to see its dedicated **Resume** view: next action first, then context, Continue, related links and the original note. Older cards still open. See [0006 — resumable context](docs/decisions/0006-resumable-context.md).
+The relay stores **encrypted envelopes**, routing and expiry data, and receipts; it does not store card titles, URLs, notes, excerpts, AI plans, or personal OpenRouter keys. Browser private keys are non-extractable and stored in IndexedDB. The optional free AI route sees only the **explicitly approved** plaintext while forwarding that request; it stores usage counts, not card content. With a personal key, the browser sends the approved input directly to OpenRouter. AI does not read linked pages.
 
-The web app is installable. Android system sharing is an opt-in preview until [the real-phone acceptance check](docs/capture-acceptance.md) passes. `pnpm --filter @carry/web build --mode share-preview` enables it for testing; normal builds retain manual paste and desktop capture. See [the capture contract](docs/decisions/0005-page-capture.md).
+Clearing site data loses that profile's keys, so it must be paired again. A web app's delivered code still matters for security; browser encryption is not a substitute for reviewing what the origin serves. See [secure handoff format and limits](docs/decisions/0003-secure-handoff.md), [capture behavior](docs/decisions/0005-page-capture.md), and [optional AI privacy boundary](docs/decisions/0007-optional-ai.md).
 
-## Optional AI resume help
+## Deploy
 
-On a received card, choose **Help me resume**, select **Free assistance from Carry** or **My OpenRouter key**, review the disclosure, then press **Approve and ask AI**. Continue works without AI. The free route requires no user account; five successful plans per device per UTC day, a separate attempt cap, output validation, and free-model rotation run on the API. It is disabled until the API has `CARRY_OPENROUTER_FREE_KEY` set as a server-only secret. OpenRouter's account-wide free-model limits and provider capacity can still prevent a response; switching keys on the same account does not add capacity.
+Carry runs as **one Render web service** serving both the Vite build and `/api`, with **Turso libSQL** for persistence. The root [render.yaml](render.yaml) pins the build and start commands. Set these in Render's service environment:
 
-Use **AI settings** once to connect your own OpenRouter account with OAuth PKCE or save a personal key on this browser. That key works on every received card in this browser profile until you disconnect or clear site data. With your key, the request goes directly from the browser to OpenRouter; a non-free model is used only if you explicitly enter it.
+| Variable | Purpose |
+| --- | --- |
+| `TURSO_DATABASE_URL` | libSQL URL, API only |
+| `TURSO_AUTH_TOKEN` | Database token, API only |
+| `CARRY_OPENROUTER_FREE_KEY` | Optional server-only free AI key; omit to disable free AI |
 
-The free route sends the approved plaintext fields through Carry's API to OpenRouter and the chosen free model. The API validates and forwards them but stores only request counts, never plaintext cards, plans, or OpenRouter keys. This is a separate disclosure from encrypted delivery. The personal-key route does not send those fields through Carry. See [0007 — optional AI](docs/decisions/0007-optional-ai.md) for the precise boundary.
+`NODE_VERSION`, `NODE_ENV`, and `CARRY_SERVE_WEB` are set in `render.yaml`; manual web-service setup needs those too. The API applies its idempotent schema on startup. Never put database or server AI keys in `VITE_` or `WXT_` variables, the repository, or a browser bundle. For a custom domain, set `CARRY_ORIGIN` to the exact HTTPS origin used by both devices. See the [Render + Turso guide](docs/render-deployment.md) for setup, migration, and deployment checks.
 
-## Verify
+## Verify changes
 
 ```sh
 pnpm test
@@ -44,66 +77,17 @@ pnpm lint
 pnpm build
 pnpm --filter @carry/web exec playwright install chromium
 pnpm test:e2e
-pnpm test:extension # Requires installed Chrome and Edge; build the web app first.
-pnpm --filter @carry/api test:turso # Optional live test; needs ignored apps/api/.env.turso.local.
 ```
 
-For an installed Chrome, use `CHROME_PATH=/usr/bin/google-chrome pnpm test:e2e`. Browser tests launch isolated API processes with temporary SQLite files. They use separate persistent profiles, stop/restart the real API, test exact-link Continue, lost-response retry, receipts, polling, Unpair, invalid URLs, and automated desktop/mobile accessibility. The browser suite builds with the share-preview flag and tests POST interception with a real service worker and an HTTP-boundary counter. Run `pnpm --filter @carry/web build` afterward to restore a default production build. Mobile emulation is not an actual-phone test.
-
-See [the Turso/Render preparation verification](docs/verification-0004.md) and [the original local verification record](docs/verification-0003.md) for completed checks and their limits.
-
-## Render + Turso deployment
-
-Use [the Render deployment guide](docs/render-deployment.md) for the exact build/start commands and environment settings. [render.yaml](render.yaml) also supports Blueprint setup. Fastify serves the built app and API from one HTTPS origin; Turso retains data across service restarts. Set the two Turso values in Render's service environment. The API uses Render's HTTPS URL automatically.
-
-The SQL schema is applied on startup. To explicitly migrate or verify the database using the ignored API credentials file:
-
-```sh
-pnpm --filter @carry/api db:migrate
-pnpm --filter @carry/api test:turso
-```
-
-See [0004 — Render and Turso](docs/decisions/0004-render-turso.md) for transaction behavior and the limits of cloud verification.
-
-## Alternative: Docker on a persistent-disk server
-
-Copy .env.example to .env on a persistent-disk server and set CARRY_DOMAIN to its public DNS hostname. Then run:
-
-```sh
-docker compose up -d --build
-docker compose ps
-```
-
-Caddy serves HTTPS; the API container is private. Named volumes retain SQLite and TLS state. Do not delete the volumes during redeployment. See [deployment and actual-device acceptance](docs/real-device-acceptance.md).
-
-Configuration:
-- TURSO_DATABASE_URL / TURSO_AUTH_TOKEN: select remote libSQL storage; API-only secrets. Required on Render.
-- CARRY_ORIGIN: exact external origin, HTTPS required except loopback. Defaults to RENDER_EXTERNAL_URL on Render, otherwise http://127.0.0.1:5173.
-- CARRY_DB_PATH: SQLite file. Development default: ./data/carry.sqlite from the API working directory.
-- PORT: platform-provided port; also binds to 0.0.0.0. CARRY_API_PORT defaults to 3001 when PORT is absent.
-- CARRY_API_HOST: default 127.0.0.1; the container binds 0.0.0.0 on its private network.
-- CARRY_SERVE_WEB=1: serve the built web app with a restrictive CSP.
-- CARRY_OPENROUTER_FREE_KEY: optional server-only key for free AI; absent disables that route.
-
-A phone’s 127.0.0.1 points to the phone. Use the same reachable HTTPS hostname on both devices.
-
-## Security and delivery contract
-
-The handoff relay receives versioned encrypted envelopes, never a plaintext Card. Optional free AI receives only explicitly approved plaintext context through a separate authenticated endpoint; see the AI section above. Shared Zod schemas validate cards in the browser and envelope shapes at the API. P-256 ECDSA authenticates devices and signs pairing approvals/envelopes. Fresh ephemeral P-256 ECDH, HKDF-SHA-256, and AES-256-GCM encrypt each card for its recipient. Private keys are non-extractable CryptoKeys in IndexedDB. Session tokens remain in memory; the relay stores their hashes. Requests require a session and an active pair.
-
-**Queued** means the database committed. **Received** means the recipient decrypted, validated, and saved the envelope locally. **Continued** means Continue was pressed, not that the destination finished loading. Receipts never delete the envelope. Cards expire after seven days; cleanup runs on startup and at most once a minute while the service is awake; reads always filter expiry. Retries reuse a locally saved envelope and ID. Unpair revokes the pair and removes its queued/local envelopes.
-
-Clearing a browser profile’s site data loses its keys and requires pairing again. Browser encryption protects stored relay data; malicious code served to the browser can still use its keys. The cryptographic format has tests but has not received an independent security audit. Routing, timing, ciphertext size, public keys, and receipt states remain visible to the relay. This small relay has a 1,000-device registration cap, a 10,000-envelope queue cap, and request rate limits; it is not a multi-tenant service.
-
-See [0003 — secure handoff](docs/decisions/0003-secure-handoff.md) for exact byte formats, signing transcripts, trust rules, retention and limitations.
+`pnpm test:e2e` uses isolated browser profiles and a temporary local relay. It builds the web app in share-preview mode; run `pnpm --filter @carry/web build` afterward to restore the normal production build. `pnpm test:extension` additionally needs installed Chrome and Edge. The [real-device checklist](docs/real-device-acceptance.md) covers a phone, HTTPS, an API restart, exact-link Continue, and expiry. Browser emulation does not replace that check.
 
 ## Workspace
 
-- apps/web — card editor, pairing, Inbox, local keys/envelopes, delivery states.
-- apps/api — authenticated Fastify relay, SQLite/Turso, pairing, expiry, receipts, production static serving.
-- apps/extension — Chrome/Edge toolbar capture through activeTab.
-- packages/protocol — Card, exact URL and versioned envelope validation.
-- packages/crypto — browser-compatible crypto primitives and format tests.
-- docs/decisions — implementation decisions.
-
-Native share extensions and notifications remain later milestones. Optional AI resume help is available on received cards.
+| Path | Owns |
+| --- | --- |
+| `apps/web` | Editor, pairing, Inbox, Resume, browser identity and local card storage |
+| `apps/api` | Fastify relay, authentication, envelopes, receipts, expiry, Turso/SQLite adapters |
+| `apps/extension` | Chrome/Edge tab and selected-text capture |
+| `packages/protocol` | Card and encrypted-envelope validation |
+| `packages/crypto` | Key handling, signing, encryption, and format tests |
+| `docs/decisions` | Architecture and security decisions |

@@ -22,7 +22,7 @@ test('free help needs approval, discloses the Carry API hop, and keeps Continue 
   try {
     await pair(page,b,relay.origin)
     await sendCard(page)
-    await b.route('**/api/v1/ai/free/status',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({enabled:true,perDeviceDailyLimit:5})}))
+    await b.route('**/api/v1/ai/free/status',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({enabled:true,perDeviceDailyLimit:5,remainingPlans:5,remainingAttempts:12,sharedCapacityAvailable:true})}))
     await b.route('**/api/v1/ai/free',route=>{
       freeRequests.push({body:route.request().postData()??'',authorization:route.request().headers().authorization??''})
       return route.fulfill({contentType:'application/json',body:JSON.stringify({content:JSON.stringify(plan),model:'vendor/example:free'})})
@@ -43,6 +43,26 @@ test('free help needs approval, discloses the Carry API hop, and keeps Continue 
     expect(freeRequests[0].body).not.toContain(dummyKey)
     expect(externalCalls).toBe(0)
     await expect(b.getByRole('link',{name:/^Continue to/})).toHaveAttribute('href',destination)
+  } finally {await receiver.close()}
+})
+
+test('exhausted free allowance is explained before approval while Continue still works',async({page,browser,relay})=>{
+  const receiver=await browser.newContext(),b=await receiver.newPage()
+  try {
+    await pair(page,b,relay.origin)
+    await sendCard(page)
+    let remainingPlans=0
+    await b.route('**/api/v1/ai/free/status',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({enabled:true,perDeviceDailyLimit:5,remainingPlans,remainingAttempts:9,sharedCapacityAvailable:true})}))
+    await navigate(b,'Inbox')
+    await b.getByRole('link',{name:'Resume OAuth callback'}).click()
+    await b.getByRole('button',{name:'Help me resume'}).click()
+    await expect(b.getByText(/used your five free plans/)).toBeVisible()
+    await expect(b.getByRole('button',{name:'Approve and ask AI'})).toBeDisabled()
+    await expect(b.getByRole('link',{name:/^Continue to/})).toHaveAttribute('href',destination)
+    remainingPlans=5
+    await b.getByRole('button',{name:'Refresh allowance'}).click()
+    await expect(b.getByText(/5 of 5 free plans left/)).toBeVisible()
+    await expect(b.getByRole('button',{name:'Approve and ask AI'})).toBeEnabled()
   } finally {await receiver.close()}
 })
 
@@ -93,7 +113,7 @@ test('free limits and bad personal-model output leave the card usable',async({pa
   try {
     await pair(page,b,relay.origin)
     await sendCard(page)
-    await b.route('**/api/v1/ai/free/status',route=>route.fulfill({contentType:'application/json',body:'{"enabled":true}'}))
+    await b.route('**/api/v1/ai/free/status',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({enabled:true,perDeviceDailyLimit:5,remainingPlans:5,remainingAttempts:12,sharedCapacityAvailable:true})}))
     await b.route('**/api/v1/ai/free',route=>route.fulfill({status:429,contentType:'application/json',body:'{"error":"Free models are busy. Try again later."}'}))
     await navigate(b,'Inbox')
     await b.getByRole('link',{name:'Resume OAuth callback'}).click()

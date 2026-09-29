@@ -152,6 +152,7 @@ export function NewCard({ onNotice, deviceId, peers, capture }: { capture:Captur
               <input id="primary" name="primary" type="url" required maxLength={MAX_URL_LENGTH} autoComplete="off" spellCheck={false} placeholder="https://something-worth-returning-to.com" value={primaryUrl} onChange={(event) => { setPrimaryUrl(event.target.value); clearError('primary') }} aria-invalid={Boolean(errors.primary)} aria-describedby={errors.primary ? 'primary-error' : 'primary-hint'} />
             </div>
             {errors.primary ? <p className="field-error" id="primary-error">{errors.primary}</p> : <p className="field-hint" id="primary-hint">This is the page you’ll open when you continue.</p>}
+            {primary?.split('#')[1]?.includes(':~:text=')&&<p className="passage-cue">Selected passage link · A supporting browser will try to highlight this text.</p>}
             <label htmlFor="title">Give it a name <span className="optional-label">Optional</span></label>
             <input id="title" name="title" maxLength={MAX_TITLE_LENGTH} placeholder="e.g. Pick up the weekend plans" value={title} onChange={(event) => setTitle(event.target.value)} />
           </div>
